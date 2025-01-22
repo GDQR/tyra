@@ -14,7 +14,7 @@
 #include "info/version.hpp"
 #include <iostream>
 #include <cstring>
-#include <iomanip> 
+#include <iomanip>
 #include "info/banner_data.cpp"
 
 #include <dma.h>
@@ -27,6 +27,19 @@
 
 namespace Tyra {
 
+static Audio audio;
+static Pad pad;
+static Info info;
+static IrxLoader irx;
+static Path1 path1;
+static path3Lib path3;
+static EngineCoreData core;
+static EngineRendererCoreGS rendererGS;
+static RendererCoreTextureSenderLib sender;
+static EngineRendererCoreTexture engineCoreTexture;
+static RendererCore3DLib engineCore3D;
+static EngineRendererCore2D engineCore2D;
+static RendererCoreSyncLib engineCoreSync;
 static Color bgColor;
 static bool isFrameLimitOn;
 
@@ -49,38 +62,7 @@ std::string EngineCoreData::getPrint() const {
   return res.str();
 }
 
-static EngineCoreData core;
-
-EngineCoreData getSettings(){ return core; }
-
-class EngineRendererCoreGS {
- public:
-  EngineRendererCoreGS();
-  ~EngineRendererCoreGS();
-
-  zbuffer_t zBuffer;
-  RendererCoreGSVRam vram;
-
-  // void flipBuffers();
-
-  // void enableZTests();
-
-  constexpr static float gsCenter = 4096.0F;
-  constexpr static float screenCenter = gsCenter / 2.0F;
-
-  framebuffer_t frameBuffers[2];
-  packet2_t* flipPacket;
-  packet2_t* zTestPacket;
-  u8 context;
-  u8 currentField;
-
-  // void allocateBuffers();
-  // void initDrawingEnvironment();
-  // void initChannels();
-  // void updateCurrentField();
-  // qword_t* setXYOffset(qword_t* q, const int& drawContext, const float& x,
-  //                      const float& y);
-};
+EngineCoreData getSettings() { return core; }
 
 EngineRendererCoreGS::EngineRendererCoreGS() {
   context = 0;
@@ -95,26 +77,6 @@ EngineRendererCoreGS::~EngineRendererCoreGS() {
     packet2_free(zTestPacket);
   }
 }
-
-static EngineRendererCoreGS rendererGS;
-
-class path3Lib {
- public:
-  path3Lib();
-  ~path3Lib();
-
-  void init();
-
-  void sendDrawFinishTag();
-  void clearScreen(zbuffer_t* z, const Color& color);
-  void sendTexture(const Texture* texture,
-                   const RendererCoreTextureBuffers& texBuffers);
-
- private:
-  packet2_t* drawFinishPacket;
-  packet2_t* clearScreenPacket;
-  packet2_t* texturePacket;
-};
 
 path3Lib::path3Lib() {
   drawFinishPacket = packet2_create(3, P2_TYPE_NORMAL, P2_MODE_CHAIN, false);
@@ -150,11 +112,10 @@ void path3Lib::clearScreen(zbuffer_t* z, const Color& color) {
                  draw_disable_tests(clearScreenPacket->next, 0, z));
   packet2_update(
       clearScreenPacket,
-      draw_clear(clearScreenPacket->next, 0,
-                 2048.0F - (core.width / 2),
-                 2048.0F - (core.height / 2), core.width,
-                 core.height, static_cast<int>(color.r),
-                 static_cast<int>(color.g), static_cast<int>(color.b)));
+      draw_clear(clearScreenPacket->next, 0, 2048.0F - (core.width / 2),
+                 2048.0F - (core.height / 2), core.width, core.height,
+                 static_cast<int>(color.r), static_cast<int>(color.g),
+                 static_cast<int>(color.b)));
   packet2_update(clearScreenPacket,
                  draw_enable_tests(clearScreenPacket->next, 0, z));
   packet2_update(clearScreenPacket, draw_finish(clearScreenPacket->next));
@@ -164,7 +125,7 @@ void path3Lib::clearScreen(zbuffer_t* z, const Color& color) {
 }
 
 void path3Lib::sendTexture(const Texture* texture,
-                        const RendererCoreTextureBuffers& texBuffers) {
+                           const RendererCoreTextureBuffers& texBuffers) {
   packet2_reset(texturePacket, false);
 
   packet2_update(
@@ -194,28 +155,6 @@ void path3Lib::sendTexture(const Texture* texture,
   dma_channel_wait(DMA_CHANNEL_GIF, 0);
   dma_channel_send_packet2(texturePacket, DMA_CHANNEL_GIF, true);
 }
-
-static Path1 path1;
-static path3Lib path3;
-
-class RendererCoreTextureSenderLib {
- public:
-  RendererCoreTextureSenderLib();
-  ~RendererCoreTextureSenderLib();
-
-  void init();
-
-  RendererCoreTextureBuffers allocate(const Texture* t_texture);
-
-  void deallocate(const RendererCoreTextureBuffers& texBuffers);
-
-  float getSizeInMB(texbuffer_t* texBuffer);
-
- private:
-  TextureBpp getBppByPsm(const u32& psm);
-  texbuffer_t* allocateTextureCore(const Texture* t_texture);
-  texbuffer_t* allocateTextureClut(const Texture* t_texture);
-};
 
 RendererCoreTextureSenderLib::RendererCoreTextureSenderLib() {}
 RendererCoreTextureSenderLib::~RendererCoreTextureSenderLib() {}
@@ -322,43 +261,6 @@ TextureBpp RendererCoreTextureSenderLib::getBppByPsm(const u32& psm) {
   }
 }
 
-static RendererCoreTextureSenderLib sender;
-
-class EngineRendererCoreTexture {
- public:
-  EngineRendererCoreTexture();
-  ~EngineRendererCoreTexture();
-
-  clutbuffer_t clut;
-  TextureRepository repository;
-
-  RendererCoreTextureBuffers useTexture(const Texture* t_tex);
-
-  /**
-   * Called by user after changing texture wrap settings
-   * Updates texture packet without reallocate it
-   */
-  RendererCoreTextureBuffers updateTextureInfo(const Texture* t_tex);
-
-  /** Called by renderer during initialization */
-  void init();
-
-  /** Called by renderer during rendering */
-  void updateClutBuffer(texbuffer_t* clutBuffer);
-
- private:
-  std::vector<RendererCoreTextureBuffers> currentAllocations;
-
-  void initClut();
-  void registerAllocation(const RendererCoreTextureBuffers& t_buffers);
-  void unregisterAllocation(const u32& textureId);
-  RendererCoreTextureBuffers getAllocatedBuffersByTextureId(const u32& id);
-};
-
-EngineRendererCoreTexture::EngineRendererCoreTexture() {}
-
-EngineRendererCoreTexture::~EngineRendererCoreTexture() {}
-
 void EngineRendererCoreTexture::init() {
   sender.init();
   repository.init(&currentAllocations);
@@ -384,7 +286,8 @@ RendererCoreTextureBuffers EngineRendererCoreTexture::useTexture(
   auto allocated = getAllocatedBuffersByTextureId(t_tex->id);
   if (allocated.id != 0) return allocated;
 
-  if (rendererGS.vram.getSizeInMB(*t_tex) >= rendererGS.vram.getFreeSpaceInMB()) {
+  if (rendererGS.vram.getSizeInMB(*t_tex) >=
+      rendererGS.vram.getFreeSpaceInMB()) {
     for (int i = currentAllocations.size() - 1; i >= 0; i--) {
       sender.deallocate(currentAllocations[i]);
     }
@@ -409,8 +312,8 @@ RendererCoreTextureBuffers EngineRendererCoreTexture::updateTextureInfo(
   return allocated;
 }
 
-RendererCoreTextureBuffers EngineRendererCoreTexture::getAllocatedBuffersByTextureId(
-    const u32& t_id) {
+RendererCoreTextureBuffers
+EngineRendererCoreTexture::getAllocatedBuffersByTextureId(const u32& t_id) {
   for (u32 i = 0; i < currentAllocations.size(); i++)
     if (currentAllocations[i].id == t_id) return currentAllocations[i];
   return {0, nullptr, nullptr};
@@ -443,35 +346,13 @@ void EngineRendererCoreTexture::initClut() {
   TYRA_LOG("Clut set!");
 }
 
-static EngineRendererCoreTexture engineCoreTexture;
+TextureRepository& getTextureRepository() {
+  return engineCoreTexture.repository;
+}
 
-TextureRepository& getTextureRepository() { return engineCoreTexture.repository;}
-
-class EngineRenderer3DFrustumPlanes {
- public:
-  EngineRenderer3DFrustumPlanes();
-  ~EngineRenderer3DFrustumPlanes();
-
-  void init(const float& fov);
-  void update(const CameraInfo3D& cameraInfo, const float& fov);
-  const Plane& get(u8 index) const { return frustumPlanes[index]; }
-  const Plane* getAll() const { return frustumPlanes; }
-  const Plane& operator[](u8 index) const { return frustumPlanes[index]; }
-
-  void print() const;
-  void print(const char* name) const;
-  void print(const std::string& name) const { print(name.c_str()); }
-  std::string getPrint(const char* name = nullptr) const;
-
- private:
-  void computeStaticData(const float& fov);
-  float lastFov;
-  Plane frustumPlanes[6];
-  float nearHeight, nearWidth, farHeight, farWidth;
-  Vec4 nearCenter, farCenter, X, Y, Z, ntl, ntr, nbl, nbr, ftl, fbr, ftr, fbl;
-};
-
-EngineRenderer3DFrustumPlanes::EngineRenderer3DFrustumPlanes() { lastFov = 0.0F; }
+EngineRenderer3DFrustumPlanes::EngineRenderer3DFrustumPlanes() {
+  lastFov = 0.0F;
+}
 EngineRenderer3DFrustumPlanes::~EngineRenderer3DFrustumPlanes() {}
 
 void EngineRenderer3DFrustumPlanes::init(const float& fov) {
@@ -481,7 +362,7 @@ void EngineRenderer3DFrustumPlanes::init(const float& fov) {
 }
 
 void EngineRenderer3DFrustumPlanes::update(const CameraInfo3D& cameraInfo,
-                                     const float& fov) {
+                                           const float& fov) {
   computeStaticData(fov);
 
   // compute the Z axis of camera
@@ -559,78 +440,6 @@ std::string EngineRenderer3DFrustumPlanes::getPrint(const char* name) const {
   return res.str();
 }
 
-class RendererCore3DLib {
- public:
-  RendererCore3DLib();
-  ~RendererCore3DLib();
-
-  /** Current camera frustum planes. */
-  EngineRenderer3DFrustumPlanes frustumPlanes;
-
-  /** Called by renderer. */
-  void init();
-
-  const float& getFov() const { return fov; }
-
-  void setFov(const float& t_fov);
-
-  /**
-   * Called by beginFrame();
-   * Sets 3D support to off
-   */
-  void update();
-
-  /**
-   * Called by beginFrame();
-   * Updates camera info, to get proper frustum culling.
-   * Sets 3D support to on
-   */
-  void update(const CameraInfo3D& cameraInfo);
-
-  /** Get projection (screen) matrix */
-  const M4x4& getProjection() { return projection; }
-
-  /**
-   * Get view (camera) matrix
-   * Updated at every beginFrame()
-   */
-  const M4x4& getView();
-
-  /**
-   * Get projection * view matrix
-   * Updated at every beginFrame()
-   */
-  const M4x4& getViewProj();
-
-  /**
-   * @brief
-   * Upload VU1 program.
-   * Please pay attention that you will be REPLACING
-   * current VU1 programs
-   *
-   * @param address Starting address of your program.
-   * @return Address of the end of your program, so next program can start from
-   * this + 1
-   */
-  u32 uploadVU1Program(VU1Program* program, const u32& address);
-
-  /**
-   * @brief Set VU1 double buffer
-   *
-   * @param startingAddress Starting address. Example 10.
-   * @param bufferSize Buffer size. Example 490, so second buffer will start
-   * from 490+10
-   */
-  void setVU1DoubleBuffers(const u16& startingAddress, const u16& bufferSize);
-
- private:
-  M4x4 view, projection, viewProj;
-  float fov;
-  bool is3DSupportEnabled;
-
-  void setProjection();
-};
-
 RendererCore3DLib::RendererCore3DLib() {
   fov = 60.0F;
   is3DSupportEnabled = false;
@@ -672,50 +481,20 @@ void RendererCore3DLib::setFov(const float& t_fov) {
 }
 
 void RendererCore3DLib::setProjection() {
-  projection = M4x4::perspective(
-      fov, core.width, core.height,
-      core.projectionScale, core.aspectRatio,
-      core.near, core.far);
+  projection =
+      M4x4::perspective(fov, core.width, core.height, core.projectionScale,
+                        core.aspectRatio, core.near, core.far);
 }
 
-u32 RendererCore3DLib::uploadVU1Program(VU1Program* program, const u32& address) {
+u32 RendererCore3DLib::uploadVU1Program(VU1Program* program,
+                                        const u32& address) {
   return path1.uploadProgram(program, address);
 }
 
 void RendererCore3DLib::setVU1DoubleBuffers(const u16& startingAddress,
-                                         const u16& bufferSize) {
+                                            const u16& bufferSize) {
   path1.setDoubleBuffer(startingAddress, bufferSize);
 }
-
-static RendererCore3DLib engineCore3D;
-
-class EngineRendererCore2D {
- public:
-  EngineRendererCore2D();
-  ~EngineRendererCore2D();
-
-  void init();
-
-  void render(const Sprite& sprite,
-              const RendererCoreTextureBuffers& texBuffers, Texture* texture);
-
-  void setTextureMappingType(
-      const PipelineTextureMappingType textureMappingType);
-
- private:
-  void setPrim();
-  void setLod();
-
-  prim_t prim;
-  lod_t lod;
-
-  static const float GS_DRAW_AREA;
-  static const float SCREEN_CENTER;
-
-  u8 context;
-  packet2_t* packets[2];
-  texrect_t* rects[2];
-};
 
 EngineRendererCore2D::EngineRendererCore2D() {
   context = 0;
@@ -762,8 +541,8 @@ void EngineRendererCore2D::setLod() {
 void EngineRendererCore2D::init() {}
 
 void EngineRendererCore2D::render(const Sprite& sprite,
-                            const RendererCoreTextureBuffers& texBuffers,
-                            Texture* texture) {
+                                  const RendererCoreTextureBuffers& texBuffers,
+                                  Texture* texture) {
   auto* rect = rects[context];
   float sizeX, sizeY;
 
@@ -815,14 +594,15 @@ void EngineRendererCore2D::render(const Sprite& sprite,
   packet2_utils_gif_add_set(packet, 1);
   packet2_utils_gs_add_lod(packet, &lod);
   packet2_utils_gif_add_set(packet, 1);
-  packet2_utils_gs_add_texbuff_clut(packet, texBuffers.core, &engineCoreTexture.clut);
+  packet2_utils_gs_add_texbuff_clut(packet, texBuffers.core,
+                                    &engineCoreTexture.clut);
   draw_enable_blending();
   packet2_update(packet, draw_rect_textured(packet->next, 0, rect));
 
-  packet2_update(packet, draw_primitive_xyoffset(
-                             packet->next, 0,
-                             SCREEN_CENTER - (core.width / 2.0F),
-                             SCREEN_CENTER - (core.height / 2.0F)));
+  packet2_update(packet,
+                 draw_primitive_xyoffset(packet->next, 0,
+                                         SCREEN_CENTER - (core.width / 2.0F),
+                                         SCREEN_CENTER - (core.height / 2.0F)));
   draw_disable_blending();
   packet2_update(packet, draw_finish(packet->next));
 
@@ -837,42 +617,6 @@ void EngineRendererCore2D::setTextureMappingType(
   lod.mag_filter = textureMappingType;
   lod.min_filter = textureMappingType;
 }
-
-static EngineRendererCore2D engineCore2D;
-
-/**
- * Synchronization class.
- * Mainly between VU1 and EE.
- *
- * For example you can set texture, render X vertices, then add() wait, and
- * wait() for it. Without it, there is risk for example to send new texture
- * during drawing with previous one.
- */
-class RendererCoreSyncLib {
- public:
-  RendererCoreSyncLib();
-  ~RendererCoreSyncLib();
-
-  void init(/*Path3* path3, Path1* path1*/);
-
-  // --- Auto
-
-  /** clear() -> sendPath1Req() -> waitAndClear() */
-  void align3D();
-
-  /** clear() -> sendPath3Req() -> waitAndClear() */
-  void align2D();
-
-  // --- Manual
-
-  u8 check();
-  void clear();
-  void waitAndClear();
-  void sendPath1Req();
-  void sendPath3Req();
-
-  void addPath1Req(packet2_t* packet);
-};
 
 RendererCoreSyncLib::RendererCoreSyncLib() {}
 RendererCoreSyncLib::~RendererCoreSyncLib() {}
@@ -912,11 +656,7 @@ void RendererCoreSyncLib::waitAndClear() {
   clear();
 }
 
-static RendererCoreSyncLib engineCoreSync;
-
-void initChannels() {
-  dma_channel_initialize(DMA_CHANNEL_GIF, nullptr, 0);
-}
+void initChannels() { dma_channel_initialize(DMA_CHANNEL_GIF, nullptr, 0); }
 
 void allocateBuffers() {
   rendererGS.frameBuffers[0].width = static_cast<unsigned int>(core.width);
@@ -924,24 +664,28 @@ void allocateBuffers() {
   rendererGS.frameBuffers[0].mask = 0;
   rendererGS.frameBuffers[0].psm = GS_PSM_32;
   rendererGS.frameBuffers[0].address = rendererGS.vram.allocateBuffer(
-      rendererGS.frameBuffers[0].width, rendererGS.frameBuffers[0].height, rendererGS.frameBuffers[0].psm);
+      rendererGS.frameBuffers[0].width, rendererGS.frameBuffers[0].height,
+      rendererGS.frameBuffers[0].psm);
 
   rendererGS.frameBuffers[1].width = rendererGS.frameBuffers[0].width;
   rendererGS.frameBuffers[1].height = rendererGS.frameBuffers[0].height;
   rendererGS.frameBuffers[1].mask = rendererGS.frameBuffers[0].mask;
   rendererGS.frameBuffers[1].psm = rendererGS.frameBuffers[0].psm;
   rendererGS.frameBuffers[1].address = rendererGS.vram.allocateBuffer(
-      rendererGS.frameBuffers[1].width, rendererGS.frameBuffers[1].height, rendererGS.frameBuffers[1].psm);
+      rendererGS.frameBuffers[1].width, rendererGS.frameBuffers[1].height,
+      rendererGS.frameBuffers[1].psm);
 
   rendererGS.zBuffer.enable = DRAW_ENABLE;
   rendererGS.zBuffer.mask = 0;
   rendererGS.zBuffer.method = ZTEST_METHOD_GREATER_EQUAL;
   rendererGS.zBuffer.zsm = GS_ZBUF_32;
-  rendererGS.zBuffer.address = rendererGS.vram.allocateBuffer(rendererGS.frameBuffers[0].width,
-                                        rendererGS.frameBuffers[0].height, rendererGS.zBuffer.zsm);
+  rendererGS.zBuffer.address = rendererGS.vram.allocateBuffer(
+      rendererGS.frameBuffers[0].width, rendererGS.frameBuffers[0].height,
+      rendererGS.zBuffer.zsm);
 
-  graph_initialize(rendererGS.frameBuffers[1].address, rendererGS.frameBuffers[1].width,
-                   rendererGS.frameBuffers[1].height, rendererGS.frameBuffers[1].psm, 0, 0);
+  graph_initialize(
+      rendererGS.frameBuffers[1].address, rendererGS.frameBuffers[1].width,
+      rendererGS.frameBuffers[1].height, rendererGS.frameBuffers[1].psm, 0, 0);
 
   // Interlacing tests
   // graph_set_mode(GRAPH_MODE_INTERLACED, GRAPH_MODE_NTSC, GRAPH_MODE_FRAME,
@@ -959,21 +703,24 @@ void allocateBuffers() {
 
 void enableZTests() {
   packet2_reset(rendererGS.zTestPacket, false);
+  packet2_update(
+      rendererGS.zTestPacket,
+      draw_enable_tests(rendererGS.zTestPacket->base, 0, &rendererGS.zBuffer));
   packet2_update(rendererGS.zTestPacket,
-                 draw_enable_tests(rendererGS.zTestPacket->base, 0, &rendererGS.zBuffer));
-  packet2_update(rendererGS.zTestPacket, draw_finish(rendererGS.zTestPacket->next));
+                 draw_finish(rendererGS.zTestPacket->next));
   dma_channel_wait(DMA_CHANNEL_GIF, 0);
   dma_channel_send_packet2(rendererGS.zTestPacket, DMA_CHANNEL_GIF, true);
 }
 
 void initDrawingEnvironment() {
   packet2_t* packet2 = packet2_create(20, P2_TYPE_NORMAL, P2_MODE_NORMAL, 0);
-  packet2_update(packet2, draw_setup_environment(packet2->base, 0, rendererGS.frameBuffers,
-                                                 &rendererGS.zBuffer));
   packet2_update(
-      packet2, draw_primitive_xyoffset(packet2->next, 0,
-                                       rendererGS.screenCenter - (core.width / 2.0F),
-                                       rendererGS.screenCenter - (core.height / 2.0F)));
+      packet2, draw_setup_environment(packet2->base, 0, rendererGS.frameBuffers,
+                                      &rendererGS.zBuffer));
+  packet2_update(packet2, draw_primitive_xyoffset(
+                              packet2->next, 0,
+                              rendererGS.screenCenter - (core.width / 2.0F),
+                              rendererGS.screenCenter - (core.height / 2.0F)));
   packet2_update(packet2, draw_finish(packet2->next));
   dma_channel_send_packet2(packet2, DMA_CHANNEL_GIF, true);
   dma_channel_wait(DMA_CHANNEL_GIF, 0);
@@ -981,8 +728,8 @@ void initDrawingEnvironment() {
   TYRA_LOG("Drawing environment initialized!");
 }
 
-qword_t* setXYOffset(qword_t* q, const int& drawContext,
-                                     const float& x, const float& y) {
+qword_t* setXYOffset(qword_t* q, const int& drawContext, const float& x,
+                     const float& y) {
   PACK_GIFTAG(q, GIF_SET_TAG(1, 0, 0, 0, GIF_FLG_PACKED, 1), GIF_REG_AD);
   q++;
 
@@ -998,14 +745,17 @@ qword_t* setXYOffset(qword_t* q, const int& drawContext,
 }
 
 void flipBuffers() {
-  graph_set_framebuffer_filtered(rendererGS.frameBuffers[rendererGS.context].address,
-                                 rendererGS.frameBuffers[rendererGS.context].width,
-                                 rendererGS.frameBuffers[rendererGS.context].psm, 0, 0);
+  graph_set_framebuffer_filtered(
+      rendererGS.frameBuffers[rendererGS.context].address,
+      rendererGS.frameBuffers[rendererGS.context].width,
+      rendererGS.frameBuffers[rendererGS.context].psm, 0, 0);
 
   rendererGS.context ^= 1;
 
-  packet2_update(rendererGS.flipPacket,
-                 draw_framebuffer(rendererGS.flipPacket->base, 0, &rendererGS.frameBuffers[rendererGS.context]));
+  packet2_update(
+      rendererGS.flipPacket,
+      draw_framebuffer(rendererGS.flipPacket->base, 0,
+                       &rendererGS.frameBuffers[rendererGS.context]));
   // Interlacing test
   // packet2_update(
   //     flipPacket,
@@ -1013,7 +763,8 @@ void flipBuffers() {
   //                 screenCenter - (core.width / 2.0F),
   //                 screenCenter - (core.interlacedHeightF / 2.0F)));
 
-  packet2_update(rendererGS.flipPacket, draw_finish(rendererGS.flipPacket->next));
+  packet2_update(rendererGS.flipPacket,
+                 draw_finish(rendererGS.flipPacket->next));
   dma_channel_wait(DMA_CHANNEL_GIF, 0);
   dma_channel_send_packet2(rendererGS.flipPacket, DMA_CHANNEL_GIF, true);
   draw_wait_finish();
@@ -1033,7 +784,8 @@ void updateCurrentField() {
 
 void initCoreGS() {
   initChannels();
-  rendererGS.flipPacket = packet2_create(4, P2_TYPE_UNCACHED_ACCL, P2_MODE_NORMAL, 0);
+  rendererGS.flipPacket =
+      packet2_create(4, P2_TYPE_UNCACHED_ACCL, P2_MODE_NORMAL, 0);
   rendererGS.zTestPacket = packet2_create(8, P2_TYPE_NORMAL, P2_MODE_NORMAL, 0);
   allocateBuffers();
   initDrawingEnvironment();
@@ -1041,13 +793,13 @@ void initCoreGS() {
   TYRA_LOG("Renderer core initialized!");
 }
 
-void beginFrame() {   
+void beginFrame() {
   engineCore3D.update();
   Threading::switchThread();
-  path3.clearScreen(&rendererGS.zBuffer, bgColor); 
+  path3.clearScreen(&rendererGS.zBuffer, bgColor);
 }
 
-void endFrame(){
+void endFrame() {
   Threading::switchThread();
   if (isFrameLimitOn) graph_wait_vsync();
   flipBuffers();
@@ -1067,7 +819,7 @@ void render(const Sprite& sprite) {
   engineCore2D.render(sprite, texBuffers, texture);
 }
 
-void showBanner(){
+void showBanner() {
   auto* bannerData = ___createTyraSplashBanner();
 
   TextureBuilderData tbd;
@@ -1081,10 +833,8 @@ void showBanner(){
   Sprite sprite;
   sprite.size.x = 128;
   sprite.size.y = 32;
-  sprite.position.x =
-      (core.width / 2) - (sprite.size.x / 2);
-  sprite.position.y =
-      (core.height / 2) - (sprite.size.y / 2);
+  sprite.position.x = (core.width / 2) - (sprite.size.x / 2);
+  sprite.position.y = (core.height / 2) - (sprite.size.y / 2);
 
   auto texture = Texture(&tbd);
   texture.addLink(sprite.id);
@@ -1115,10 +865,6 @@ void showBanner(){
   std::cout << "-----------------------------------------\n";
   std::cout << "\n";
 }
-static Audio audio;
-static Pad pad;
-static Info info;
-static IrxLoader irx;
 
 void InitEngine(const EngineOptions& options) {
   info.writeLogsToFile = options.writeLogsToFile;
