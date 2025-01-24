@@ -89,9 +89,7 @@ texbuffer_t* RendererCoreTextureSender::allocateTextureClut(
   auto* result = new texbuffer_t;
   const auto* clut = t_texture->clut;
 
-  int clutWidth = clut->width <= 64 ? 64 : clut->width;
-
-  result->width = clutWidth;
+  result->width = 64;
   result->psm = clut->psm;
   result->info.components = clut->components;
 

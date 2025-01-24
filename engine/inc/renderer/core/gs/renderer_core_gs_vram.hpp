@@ -24,7 +24,7 @@ class RendererCoreGSVRam {
 
   float getSizeInMB(const Texture& texture);
   float getSizeInMB(const TextureData& texData);
-  float getSizeInMB(int width, const int& height, const int& psm,
+  float getSizeInMB(int width, int height, const int& psm,
                     const int& alignment);
 
   int allocate(const TextureData& texData);
@@ -36,8 +36,7 @@ class RendererCoreGSVRam {
   void free(const int& address);
 
  private:
-  int getSize(int width, const int& height, const int& psm,
-              const int& alignment);
+  int getSize(int width, int height, const int psm, const int alignment);
 
   static constexpr float ptr2MB = 262144.0F;
   bool touched;
