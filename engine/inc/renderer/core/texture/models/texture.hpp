@@ -73,6 +73,7 @@ class Texture {
   void addLink(const u32& t_id);
 
   u32 getTextureSize() const;
+  u32 getClutTextureSize() const;
 
   /**
    * Check if texture is linked with MeshMaterial/Sprite.

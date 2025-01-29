@@ -11,6 +11,7 @@
 #include <dma.h>
 #include <graph.h>
 #include <gs_psm.h>
+#include "engine.hpp"
 #include "renderer/core/gs/renderer_core_gs_vram.hpp"
 
 #define GS_VRAM_TEXTURE_ALIGNMENT GRAPH_ALIGN_BLOCK
@@ -38,7 +39,7 @@ const float& RendererCoreGSVRam::getFreeSpaceInMB() {
 float RendererCoreGSVRam::getSizeInMB(const Texture& texture) {
   float result = getSizeInMB(*texture.core);
 
-  if (texture.clut != nullptr) {
+  if (texture.clut->data != nullptr) {
     result += getSizeInMB(*texture.clut);
   }
 
@@ -52,7 +53,7 @@ float RendererCoreGSVRam::getSizeInMB(const TextureData& texData) {
 
 float RendererCoreGSVRam::getSizeInMB(int width, const int& height,
                                       const int& psm, const int& alignment) {
-  return getSize(width, height, psm, alignment) / ptr2MB;
+  return GetVramSize(width, height, psm, alignment) / ptr2MB;
 }
 
 int RendererCoreGSVRam::allocate(const TextureData& texData) {
@@ -67,7 +68,7 @@ int RendererCoreGSVRam::allocateBuffer(const int& width, const int& height,
 
 int RendererCoreGSVRam::allocate(const int& width, const int& height,
                                  const int& psm, const int& alignment) {
-  auto size = getSize(width, height, psm, alignment);
+  auto size = GetVramSize(width, height, psm, alignment);
 
   pointer += size;
 
@@ -85,65 +86,6 @@ int RendererCoreGSVRam::allocate(const int& width, const int& height,
 void RendererCoreGSVRam::free(const int& address) {
   pointer = address;
   touched = true;
-}
-
-int RendererCoreGSVRam::getSize(int width, const int& height, const int& psm,
-                                const int& alignment) {
-  int size = 0;
-
-  // First correct the buffer width to be a multiple of 64 or 128
-  // If the width is less than or equal to 16, then it's a palette
-  if (width > 16) {
-    switch (psm) {
-      case GS_PSM_8:
-      case GS_PSM_4:
-      case GS_PSM_8H:
-      case GS_PSM_4HL:
-      case GS_PSM_4HH:
-        width = -128 & (width + 127);
-        break;
-      default:
-        width = -64 & (width + 63);
-        break;
-    }
-  }
-
-  // Texture storage size is in pixels/word
-  switch (psm) {
-    case GS_PSM_4:
-      size = width * (height >> 3);
-      break;
-    case GS_PSM_8:
-      size = width * (height >> 2);
-      break;
-    case GS_PSM_24:
-    case GS_PSM_32:
-    case GS_PSM_8H:
-    case GS_PSM_4HL:
-    case GS_PSM_4HH:
-    case GS_PSMZ_24:
-    case GS_PSMZ_32:
-      size = width * height;
-      break;
-    case GS_PSM_16:
-    case GS_PSM_16S:
-    case GS_PSMZ_16:
-    case GS_PSMZ_16S:
-      size = width * (height >> 1);
-      break;
-    default:
-      return 0;
-  }
-
-  if (alignment == GS_VRAM_TEXTURE_ALIGNMENT) {
-    // TODO: Without this hack, textures are overlapping ourselves
-    size += 1024 * 2;
-  }
-
-  // The buffer size is dependent on alignment
-  size = -alignment & (size + (alignment - 1));
-
-  return size;
 }
 
 }  // namespace Tyra

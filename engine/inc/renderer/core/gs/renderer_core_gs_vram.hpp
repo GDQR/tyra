@@ -36,8 +36,6 @@ class RendererCoreGSVRam {
   void free(const int& address);
 
  private:
-  int getSize(int width, const int& height, const int& psm,
-              const int& alignment);
 
   static constexpr float ptr2MB = 262144.0F;
   bool touched;

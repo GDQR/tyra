@@ -15,7 +15,9 @@
 #include <fastmath.h>
 #include <string>
 #include <sstream>
+#include "engine.hpp"
 #include "renderer/core/texture/models/texture.hpp"
+#include <graph_vram.h>
 
 namespace Tyra {
 
@@ -95,77 +97,12 @@ float Texture::getSizeInMB() const {
          (core->bpp / 100.0F) / 8.0F;
 }
 
-/** Based on gsKit code, thank you guys! */
 u32 Texture::getTextureSize() const {
-  int widthBlocks, heightBlocks;
-  int widthAlign, heightAlign;
+  return GetVramSize(core->width, core->height, core->psm, GRAPH_ALIGN_BLOCK);
+}
 
-  // Calculate the number of blocks width and height
-  // A block is 256 bytes in size
-  switch (core->bpp) {
-    case bpp32:
-    case bpp24:
-      // 1 block = 8x8 pixels
-      widthBlocks = (core->width + 7) / 8;
-      heightBlocks = (core->height + 7) / 8;
-      break;
-
-    case bpp8:
-      // 1 block = 16x16 pixels
-      widthBlocks = (core->width + 15) / 16;
-      heightBlocks = (core->height + 15) / 16;
-      break;
-    case bpp4:
-      // 1 block = 32x16 pixels
-      widthBlocks = (core->width + 31) / 32;
-      heightBlocks = (core->height + 15) / 16;
-      break;
-    default:
-      TYRA_TRAP("Unknown texture bpp");
-      return -1;
-  }
-
-  // Calculate the minimum block alignment
-  if (core->bpp == bpp32 || core->bpp == bpp24 || core->bpp == bpp8) {
-    // 8x4 blocks in a page.
-    // block traversing order:
-    // 0145....
-    // 2367....
-    // ........
-    // ........
-    if (widthBlocks <= 2 && heightBlocks <= 1) {
-      widthAlign = 1;
-      heightAlign = 1;
-    } else if (widthBlocks <= 4 && heightBlocks <= 2) {
-      widthAlign = 2;
-      heightAlign = 2;
-    } else if (widthBlocks <= 8 && heightBlocks <= 4) {
-      widthAlign = 4;
-      heightAlign = 4;
-    } else {
-      widthAlign = 8;
-      heightAlign = 4;
-    }
-  } else {
-    if (widthBlocks <= 1 && heightBlocks <= 2) {
-      widthAlign = 1;
-      heightAlign = 1;
-    } else if (widthBlocks <= 2 && heightBlocks <= 2) {
-      widthAlign = 2;
-      heightAlign = 2;
-    } else if (widthBlocks <= 2 && heightBlocks <= 8) {
-      widthAlign = 2;
-      heightAlign = 8;
-    } else {
-      widthAlign = 4;
-      heightAlign = 8;
-    }
-  }
-
-  widthBlocks = (-widthAlign) & (widthBlocks + widthAlign - 1);
-  heightBlocks = (-heightAlign) & (heightBlocks + heightAlign - 1);
-
-  return widthBlocks * heightBlocks * 256;
+u32 Texture::getClutTextureSize() const {
+  return GetVramSize(clut->width, clut->height, clut->psm, GRAPH_ALIGN_BLOCK);
 }
 
 void Texture::setDefaultWrapSettings() {

@@ -138,7 +138,6 @@ class RendererCoreTextureSenderLib {
   float getSizeInMB(texbuffer_t* texBuffer);
 
  private:
-  TextureBpp getBppByPsm(const u32& psm);
   texbuffer_t* allocateTextureCore(const Texture* t_texture);
   texbuffer_t* allocateTextureClut(const Texture* t_texture);
 };
@@ -308,8 +307,6 @@ class RendererCoreSyncLib {
   RendererCoreSyncLib();
   ~RendererCoreSyncLib();
 
-  void init(/*Path3* path3, Path1* path1*/);
-
   // --- Auto
 
   /** clear() -> sendPath1Req() -> waitAndClear() */
@@ -335,6 +332,13 @@ void BeginDrawing(void);
 void beginFrame();
 void endFrame();
 void render(const Sprite& sprite);
+
+TextureBpp getBppByPsm(const u32& psm);
+int GetVramSize(int width, int height, const int psm, const int alignment);
+
+/** Clear the screen based on the screen's origin, width, and height using the defined color. **/
+qword_t* draw_clear(qword_t *q, int context, float x, float y, float width, float height, int r, int g, int b, int a);
+Info getInfo();
 EngineCoreData getSettings();
 TextureRepository& getTextureRepository();
 
