@@ -270,13 +270,25 @@ TextureBpp getBppByPsm(const u32& psm) {
   }
 }
 
+static clutbuffer_t clut;
+
+void initClut() {
+  clut.storage_mode = CLUT_STORAGE_MODE1;
+  clut.start = 0;
+  clut.psm = 0;
+  clut.load_method = CLUT_NO_LOAD;
+  clut.address = 0;
+  TYRA_LOG("Clut set!");
+}
+
+static std::vector<RendererCoreTextureBuffers> currentAllocations;
 void EngineRendererCoreTexture::init() {
   sender.init();
   repository.init(&currentAllocations);
   initClut();
 }
 
-void EngineRendererCoreTexture::updateClutBuffer(texbuffer_t* clutBuffer) {
+void updateClutBuffer(texbuffer_t* clutBuffer) {
   if (clutBuffer == nullptr || clutBuffer->width == 0) {
     clut.psm = 0;
     clut.load_method = CLUT_NO_LOAD;
@@ -286,6 +298,29 @@ void EngineRendererCoreTexture::updateClutBuffer(texbuffer_t* clutBuffer) {
     clut.load_method = CLUT_LOAD;
     clut.address = clutBuffer->address;
   }
+}
+
+RendererCoreTextureBuffers getAllocatedBuffersByTextureId(const u32& t_id) {
+  for (u32 i = 0; i < currentAllocations.size(); i++)
+    if (currentAllocations[i].id == t_id) return currentAllocations[i];
+  return {0, nullptr, nullptr};
+}
+
+void registerAllocation(const RendererCoreTextureBuffers& t_buffers) {
+  currentAllocations.push_back(t_buffers);
+}
+
+void unregisterAllocation(const u32& textureId) {
+  u32 foundIndex;
+
+  for (u32 i = 0; i < currentAllocations.size(); i++) {
+    if (currentAllocations[i].id == textureId) {
+      foundIndex = i;
+      break;
+    }
+  }
+
+  currentAllocations.erase(currentAllocations.begin() + foundIndex);
 }
 
 RendererCoreTextureBuffers EngineRendererCoreTexture::useTexture(
@@ -318,40 +353,6 @@ RendererCoreTextureBuffers EngineRendererCoreTexture::updateTextureInfo(
 
   sendTextureWithPath3(t_tex, allocated);
   return allocated;
-}
-
-RendererCoreTextureBuffers
-EngineRendererCoreTexture::getAllocatedBuffersByTextureId(const u32& t_id) {
-  for (u32 i = 0; i < currentAllocations.size(); i++)
-    if (currentAllocations[i].id == t_id) return currentAllocations[i];
-  return {0, nullptr, nullptr};
-}
-
-void EngineRendererCoreTexture::registerAllocation(
-    const RendererCoreTextureBuffers& t_buffers) {
-  currentAllocations.push_back(t_buffers);
-}
-
-void EngineRendererCoreTexture::unregisterAllocation(const u32& textureId) {
-  u32 foundIndex;
-
-  for (u32 i = 0; i < currentAllocations.size(); i++) {
-    if (currentAllocations[i].id == textureId) {
-      foundIndex = i;
-      break;
-    }
-  }
-
-  currentAllocations.erase(currentAllocations.begin() + foundIndex);
-}
-
-void EngineRendererCoreTexture::initClut() {
-  clut.storage_mode = CLUT_STORAGE_MODE1;
-  clut.start = 0;
-  clut.psm = 0;
-  clut.load_method = CLUT_NO_LOAD;
-  clut.address = 0;
-  TYRA_LOG("Clut set!");
 }
 
 TextureRepository& getTextureRepository() {
@@ -606,8 +607,7 @@ void EngineRendererCore2D::render(const Sprite& sprite,
   packet2_utils_gif_add_set(packet, 1);
   packet2_utils_gs_add_lod(packet, &lod);
   packet2_utils_gif_add_set(packet, 1);
-  packet2_utils_gs_add_texbuff_clut(packet, texBuffers.core,
-                                    &engineCoreTexture.clut);
+  packet2_utils_gs_add_texbuff_clut(packet, texBuffers.core, &clut);
   draw_enable_blending();
   packet2_update(packet, draw_rect_textured(packet->next, 0, rect));
 
@@ -807,7 +807,7 @@ void render(const Sprite& sprite) {
       "Was not found in texture repository! Did you forget to add texture?");
 
   auto texBuffers = engineCoreTexture.useTexture(texture);
-  engineCoreTexture.updateClutBuffer(texBuffers.clut);
+  updateClutBuffer(texBuffers.clut);
   engineCore2D.render(sprite, texBuffers, texture);
 }
 

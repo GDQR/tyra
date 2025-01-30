@@ -97,7 +97,7 @@ class RendererCoreTextureSenderLib {
 
 class EngineRendererCoreTexture {
  public:
-  clutbuffer_t clut;
+  // clutbuffer_t clut;
   TextureRepository repository;
 
   RendererCoreTextureBuffers useTexture(const Texture* t_tex);
@@ -110,17 +110,6 @@ class EngineRendererCoreTexture {
 
   /** Called by renderer during initialization */
   void init();
-
-  /** Called by renderer during rendering */
-  void updateClutBuffer(texbuffer_t* clutBuffer);
-
- private:
-  std::vector<RendererCoreTextureBuffers> currentAllocations;
-
-  void initClut();
-  void registerAllocation(const RendererCoreTextureBuffers& t_buffers);
-  void unregisterAllocation(const u32& textureId);
-  RendererCoreTextureBuffers getAllocatedBuffersByTextureId(const u32& id);
 };
 
 class EngineRenderer3DFrustumPlanes {
@@ -247,6 +236,11 @@ EngineCoreData getSettings();
 TextureRepository& getTextureRepository();
 
 void setClearScreenColor(const Color& color);
+
+// rendererCoreTexture
+
+/** Called by renderer during rendering */
+void updateClutBuffer(texbuffer_t* clutBuffer);
 
 // rendererCore2D
 
