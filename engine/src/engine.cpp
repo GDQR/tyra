@@ -83,12 +83,16 @@ EngineRendererCoreGS::~EngineRendererCoreGS() {
 }
 
 void initPath3() {
-  drawFinishPacketPath3 = packet2_create(3, P2_TYPE_NORMAL, P2_MODE_CHAIN, false);
-  clearScreenPacketPath3 = packet2_create(36, P2_TYPE_NORMAL, P2_MODE_CHAIN, false);
-  texturePacketPath3 = packet2_create(128, P2_TYPE_NORMAL, P2_MODE_CHAIN, false);
+  drawFinishPacketPath3 =
+      packet2_create(3, P2_TYPE_NORMAL, P2_MODE_CHAIN, false);
+  clearScreenPacketPath3 =
+      packet2_create(36, P2_TYPE_NORMAL, P2_MODE_CHAIN, false);
+  texturePacketPath3 =
+      packet2_create(128, P2_TYPE_NORMAL, P2_MODE_CHAIN, false);
 
   packet2_chain_open_end(drawFinishPacketPath3, 0, 0);
-  packet2_update(drawFinishPacketPath3, draw_finish(drawFinishPacketPath3->next));
+  packet2_update(drawFinishPacketPath3,
+                 draw_finish(drawFinishPacketPath3->next));
   packet2_chain_close_tag(drawFinishPacketPath3);
   dma_channel_initialize(DMA_CHANNEL_GIF, nullptr, 0);
 
@@ -105,21 +109,23 @@ void clearScreenPath3(zbuffer_t* z, const Color& color) {
   packet2_chain_open_end(clearScreenPacketPath3, 0, 0);
   packet2_update(clearScreenPacketPath3,
                  draw_disable_tests(clearScreenPacketPath3->next, 0, z));
-  packet2_update(clearScreenPacketPath3,
+  packet2_update(
+      clearScreenPacketPath3,
       draw_clear(clearScreenPacketPath3->next, 0, 2048.0F - (core.width / 2),
                  2048.0F - (core.height / 2), core.width, core.height,
                  static_cast<int>(color.r), static_cast<int>(color.g),
                  static_cast<int>(color.b), static_cast<int>(color.a)));
   packet2_update(clearScreenPacketPath3,
                  draw_enable_tests(clearScreenPacketPath3->next, 0, z));
-  packet2_update(clearScreenPacketPath3, draw_finish(clearScreenPacketPath3->next));
+  packet2_update(clearScreenPacketPath3,
+                 draw_finish(clearScreenPacketPath3->next));
   packet2_chain_close_tag(clearScreenPacketPath3);
   dma_channel_wait(DMA_CHANNEL_GIF, 0);
   dma_channel_send_packet2(clearScreenPacketPath3, DMA_CHANNEL_GIF, true);
 }
 
 void sendTextureWithPath3(const Texture* texture,
-                           const RendererCoreTextureBuffers& texBuffers) {
+                          const RendererCoreTextureBuffers& texBuffers) {
   packet2_reset(texturePacketPath3, false);
 
   packet2_update(
@@ -145,7 +151,8 @@ void sendTextureWithPath3(const Texture* texture,
                      const_cast<texwrap_t*>(texture->getWrapSettings())));
   packet2_chain_close_tag(texturePacketPath3);
 
-  packet2_update(texturePacketPath3, draw_texture_flush(texturePacketPath3->next));
+  packet2_update(texturePacketPath3,
+                 draw_texture_flush(texturePacketPath3->next));
   dma_channel_wait(DMA_CHANNEL_GIF, 0);
   dma_channel_send_packet2(texturePacketPath3, DMA_CHANNEL_GIF, true);
 }
@@ -488,6 +495,31 @@ void RendererCore3DLib::setVU1DoubleBuffers(const u16& startingAddress,
   path1.setDoubleBuffer(startingAddress, bufferSize);
 }
 
+
+static prim_t prim;
+static lod_t lod;
+
+void setPrim() {
+  prim.type = PRIM_TRIANGLE;
+  prim.shading = PRIM_SHADE_GOURAUD;
+  prim.mapping = DRAW_ENABLE;
+  prim.fogging = DRAW_DISABLE;
+  prim.blending = DRAW_ENABLE;
+  prim.antialiasing = DRAW_DISABLE;
+  prim.mapping_type = PRIM_MAP_ST;
+  prim.colorfix = PRIM_UNFIXED;
+}
+
+void setLod() {
+  lod.calculation = LOD_USE_K;
+  lod.max_level = 0;
+  lod.mag_filter = LOD_MAG_LINEAR;
+  lod.min_filter = LOD_MIN_LINEAR;
+  lod.mipmap_select = LOD_MIPMAP_REGISTER;
+  lod.l = 0;
+  lod.k = 0.0F;
+}
+
 EngineRendererCore2D::EngineRendererCore2D() {
   context = 0;
   packets[0] = packet2_create(16, P2_TYPE_NORMAL, P2_MODE_NORMAL, 0);
@@ -508,29 +540,6 @@ EngineRendererCore2D::~EngineRendererCore2D() {
 
 const float EngineRendererCore2D::GS_DRAW_AREA = 4096.0F;
 const float EngineRendererCore2D::SCREEN_CENTER = 4096.0F / 2.0F;
-
-void EngineRendererCore2D::setPrim() {
-  prim.type = PRIM_TRIANGLE;
-  prim.shading = PRIM_SHADE_GOURAUD;
-  prim.mapping = DRAW_ENABLE;
-  prim.fogging = DRAW_DISABLE;
-  prim.blending = DRAW_ENABLE;
-  prim.antialiasing = DRAW_DISABLE;
-  prim.mapping_type = PRIM_MAP_ST;
-  prim.colorfix = PRIM_UNFIXED;
-}
-
-void EngineRendererCore2D::setLod() {
-  lod.calculation = LOD_USE_K;
-  lod.max_level = 0;
-  lod.mag_filter = LOD_MAG_LINEAR;
-  lod.min_filter = LOD_MIN_LINEAR;
-  lod.mipmap_select = LOD_MIPMAP_REGISTER;
-  lod.l = 0;
-  lod.k = 0.0F;
-}
-
-void EngineRendererCore2D::init() {}
 
 void EngineRendererCore2D::render(const Sprite& sprite,
                                   const RendererCoreTextureBuffers& texBuffers,
@@ -604,7 +613,7 @@ void EngineRendererCore2D::render(const Sprite& sprite,
   context = !context;
 }
 
-void EngineRendererCore2D::setTextureMappingType(
+void setTextureMappingType(
     const PipelineTextureMappingType textureMappingType) {
   lod.mag_filter = textureMappingType;
   lod.min_filter = textureMappingType;
@@ -621,9 +630,7 @@ void align2D() {
   sendDrawFinishTagPath3();
   waitAndClear();
 }
-void addPath1Req(packet2_t* packet) {
-  path1.addDrawFinishTag(packet);
-}
+void addPath1Req(packet2_t* packet) { path1.addDrawFinishTag(packet); }
 
 u8 check() { return *GS_REG_CSR & 2; }
 
@@ -854,7 +861,6 @@ void InitEngine(const EngineOptions& options) {
   initCoreGS();
   engineCoreTexture.init();
   engineCore3D.init();
-  engineCore2D.init();
   showBanner();
   audio.init();
   pad.init();

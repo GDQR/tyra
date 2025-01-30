@@ -243,21 +243,10 @@ class EngineRendererCore2D {
   EngineRendererCore2D();
   ~EngineRendererCore2D();
 
-  void init();
-
   void render(const Sprite& sprite,
               const RendererCoreTextureBuffers& texBuffers, Texture* texture);
 
-  void setTextureMappingType(
-      const PipelineTextureMappingType textureMappingType);
-
  private:
-  void setPrim();
-  void setLod();
-
-  prim_t prim;
-  lod_t lod;
-
   static const float GS_DRAW_AREA;
   static const float SCREEN_CENTER;
 
@@ -286,11 +275,17 @@ TextureRepository& getTextureRepository();
 
 void setClearScreenColor(const Color& color);
 
+// rendererCore2D
+
+void setPrim();
+void setLod();
+void setTextureMappingType(const PipelineTextureMappingType textureMappingType);
+
 // Path3
 void clearScreenPath3(zbuffer_t* z, const Color& color);
-void sendDrawFinishTagPath3();  
+void sendDrawFinishTagPath3();
 void sendTextureWithPath3(const Texture* texture,
-                   const RendererCoreTextureBuffers& texBuffers);
+                          const RendererCoreTextureBuffers& texBuffers);
 // sync
 
 /**
