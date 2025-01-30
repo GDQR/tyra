@@ -72,28 +72,9 @@ class EngineRendererCoreGS {
   EngineRendererCoreGS();
   ~EngineRendererCoreGS();
 
-  zbuffer_t zBuffer;
-  RendererCoreGSVRam vram;
-
-  // void flipBuffers();
-
-  // void enableZTests();
-
-  constexpr static float gsCenter = 4096.0F;
-  constexpr static float screenCenter = gsCenter / 2.0F;
-
   framebuffer_t frameBuffers[2];
-  packet2_t* flipPacket;
-  packet2_t* zTestPacket;
   u8 context;
   u8 currentField;
-
-  // void allocateBuffers();
-  // void initDrawingEnvironment();
-  // void initChannels();
-  // void updateCurrentField();
-  // qword_t* setXYOffset(qword_t* q, const int& drawContext, const float& x,
-  //                      const float& y);
 };
 
 class RendererCoreTextureSenderLib {
@@ -171,13 +152,10 @@ class RendererCore3DLib {
   RendererCore3DLib();
   ~RendererCore3DLib();
 
-  /** Current camera frustum planes. */
-  EngineRenderer3DFrustumPlanes frustumPlanes;
-
   /** Called by renderer. */
   void init();
 
-  const float& getFov() const { return fov; }
+  const float& getFov();
 
   void setFov(const float& t_fov);
 
@@ -232,8 +210,6 @@ class RendererCore3DLib {
 
  private:
   M4x4 view, projection, viewProj;
-  float fov;
-  bool is3DSupportEnabled;
 
   void setProjection();
 };
@@ -247,9 +223,6 @@ class EngineRendererCore2D {
               const RendererCoreTextureBuffers& texBuffers, Texture* texture);
 
  private:
-  static const float GS_DRAW_AREA;
-  static const float SCREEN_CENTER;
-
   u8 context;
   packet2_t* packets[2];
   texrect_t* rects[2];

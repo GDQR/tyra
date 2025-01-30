@@ -15,12 +15,13 @@
 
 namespace Tyra {
 
-VECTOR M4x4::upVec = {0.0F, 1.0F, 0.0F, 1.0F};
-VECTOR M4x4::viewVec = {0.0F, 0.0F, 0.0F, 1.0F};
+VECTOR upVec = {0.0F, 1.0F, 0.0F, 1.0F};
+VECTOR viewVec = {0.0F, 0.0F, 0.0F, 1.0F};
 
-const M4x4 M4x4::Identity =
-    M4x4(1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F,
-         0.0F, 0.0F, 0.0F, 1.0F);
+M4x4 getMatrixIdentity() {
+  return M4x4(1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F,
+              0.0F, 0.0F, 0.0F, 0.0F, 1.0F);
+}
 
 M4x4::M4x4(const float& m11, const float& m12, const float& m13,
            const float& m14, const float& m21, const float& m22,
@@ -121,7 +122,7 @@ void M4x4::identity() {
 }
 
 void M4x4::translate(const Vec4& v) {
-  M4x4 temp = M4x4::Identity;
+  M4x4 temp = getMatrixIdentity();
   temp.translationX(v.x);
   temp.translationY(v.y);
   temp.translationZ(v.z);
@@ -129,25 +130,25 @@ void M4x4::translate(const Vec4& v) {
 }
 
 void M4x4::translateX(const float& v) {
-  M4x4 temp = M4x4::Identity;
+  M4x4 temp = getMatrixIdentity();
   temp.translationX(v);
   cross(this->data, temp.data, this->data);
 }
 
 void M4x4::translateY(const float& v) {
-  M4x4 temp = M4x4::Identity;
+  M4x4 temp = getMatrixIdentity();
   temp.translationY(v);
   cross(this->data, temp.data, this->data);
 }
 
 void M4x4::translateZ(const float& v) {
-  M4x4 temp = M4x4::Identity;
+  M4x4 temp = getMatrixIdentity();
   temp.translationZ(v);
   cross(this->data, temp.data, this->data);
 }
 
 void M4x4::rotate(const Vec4& v) {
-  M4x4 temp = M4x4::Identity;
+  M4x4 temp = getMatrixIdentity();
 
   temp.rotationZ(v.z);
   cross(this->data, temp.data, this->data);
@@ -162,19 +163,19 @@ void M4x4::rotate(const Vec4& v) {
 }
 
 void M4x4::rotateX(const float& radians) {
-  M4x4 temp = M4x4::Identity;
+  M4x4 temp = getMatrixIdentity();
   temp.rotationX(radians);
   cross(this->data, temp.data, this->data);
 }
 
 void M4x4::rotateY(const float& radians) {
-  M4x4 temp = M4x4::Identity;
+  M4x4 temp = getMatrixIdentity();
   temp.rotationY(radians);
   cross(this->data, temp.data, this->data);
 }
 
 void M4x4::rotateZ(const float& radians) {
-  M4x4 temp = M4x4::Identity;
+  M4x4 temp = getMatrixIdentity();
   temp.rotationZ(radians);
   cross(this->data, temp.data, this->data);
 }
@@ -188,7 +189,7 @@ void M4x4::rotateByAngle(const float& angle, const Vec4& axis) {
 void M4x4::scale(const float& v) { scale(Vec4(v, v, v, 1.0F)); }
 
 void M4x4::scale(const Vec4& v) {
-  M4x4 temp = M4x4::Identity;
+  M4x4 temp = getMatrixIdentity();
   temp.setScale(v);
   cross(this->data, temp.data, this->data);
 }
@@ -232,7 +233,7 @@ M4x4 M4x4::perspective(const float& fov, const float& width,
 }
 
 M4x4 M4x4::lookAt(const Vec4& position, const Vec4& target) {
-  M4x4 res = M4x4::Identity;
+  M4x4 res = getMatrixIdentity();
   lookAt(&res, position, target);
   return res;
 }

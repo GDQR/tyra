@@ -42,9 +42,19 @@ static EngineRendererCore2D engineCore2D;
 static Color bgColor;
 static bool isFrameLimitOn = true;
 
+static zbuffer_t zBuffer;
+static RendererCoreGSVRam vram;
+
+static packet2_t* zTestPacket;
+
 static packet2_t* clearScreenPacketPath3;
 static packet2_t* drawFinishPacketPath3;
 static packet2_t* texturePacketPath3;
+
+static packet2_t* flipPacket;
+
+static const float GS_DRAW_AREA = 4096.0F;
+static const float SCREEN_CENTER = 4096.0F / 2.0F;
 void EngineCoreData::print() const {
   auto text = getPrint();
   printf("%s\n", text.c_str());
@@ -186,11 +196,11 @@ float RendererCoreTextureSenderLib::getSizeInMB(texbuffer_t* texBuffer) {
 void RendererCoreTextureSenderLib::deallocate(
     const RendererCoreTextureBuffers& texBuffers) {
   if (texBuffers.clut != nullptr && texBuffers.clut->width > 0) {
-    rendererGS.vram.free(texBuffers.clut->address);
+    vram.free(texBuffers.clut->address);
     delete texBuffers.clut;
   }
 
-  rendererGS.vram.free(texBuffers.core->address);
+  vram.free(texBuffers.core->address);
 
   delete texBuffers.core;
 }
@@ -216,7 +226,7 @@ texbuffer_t* RendererCoreTextureSenderLib::allocateTextureCore(
   result->psm = core->psm;
   result->info.components = core->components;
 
-  auto address = rendererGS.vram.allocate(*core);
+  auto address = vram.allocate(*core);
   TYRA_ASSERT(address > 0, "Texture buffer allocation error, no memory!");
   result->address = address;
 
@@ -235,7 +245,7 @@ texbuffer_t* RendererCoreTextureSenderLib::allocateTextureClut(
   result->psm = clut->psm;
   result->info.components = clut->components;
 
-  auto address = rendererGS.vram.allocate(*clut);
+  auto address = vram.allocate(*clut);
   TYRA_ASSERT(address > 0, "Texture clut buffer allocation error, no memory!");
   result->address = address;
 
@@ -285,8 +295,7 @@ RendererCoreTextureBuffers EngineRendererCoreTexture::useTexture(
   auto allocated = getAllocatedBuffersByTextureId(t_tex->id);
   if (allocated.id != 0) return allocated;
 
-  if (rendererGS.vram.getSizeInMB(*t_tex) >=
-      rendererGS.vram.getFreeSpaceInMB()) {
+  if (vram.getSizeInMB(*t_tex) >= vram.getFreeSpaceInMB()) {
     for (int i = currentAllocations.size() - 1; i >= 0; i--) {
       sender.deallocate(currentAllocations[i]);
     }
@@ -439,6 +448,10 @@ std::string EngineRenderer3DFrustumPlanes::getPrint(const char* name) const {
   return res.str();
 }
 
+static bool is3DSupportEnabled;
+/** Current camera frustum planes. */
+static EngineRenderer3DFrustumPlanes frustumPlanes;
+static float fov;
 RendererCore3DLib::RendererCore3DLib() {
   fov = 60.0F;
   is3DSupportEnabled = false;
@@ -479,6 +492,8 @@ void RendererCore3DLib::setFov(const float& t_fov) {
   setProjection();
 }
 
+const float& RendererCore3DLib::getFov() { return fov; }
+
 void RendererCore3DLib::setProjection() {
   projection =
       M4x4::perspective(fov, core.width, core.height, core.projectionScale,
@@ -494,7 +509,6 @@ void RendererCore3DLib::setVU1DoubleBuffers(const u16& startingAddress,
                                             const u16& bufferSize) {
   path1.setDoubleBuffer(startingAddress, bufferSize);
 }
-
 
 static prim_t prim;
 static lod_t lod;
@@ -537,9 +551,6 @@ EngineRendererCore2D::~EngineRendererCore2D() {
   delete rects[0];
   delete rects[1];
 }
-
-const float EngineRendererCore2D::GS_DRAW_AREA = 4096.0F;
-const float EngineRendererCore2D::SCREEN_CENTER = 4096.0F / 2.0F;
 
 void EngineRendererCore2D::render(const Sprite& sprite,
                                   const RendererCoreTextureBuffers& texBuffers,
@@ -649,7 +660,7 @@ void allocateBuffers() {
   rendererGS.frameBuffers[0].height = static_cast<unsigned int>(core.height);
   rendererGS.frameBuffers[0].mask = 0;
   rendererGS.frameBuffers[0].psm = GS_PSM_32;
-  rendererGS.frameBuffers[0].address = rendererGS.vram.allocateBuffer(
+  rendererGS.frameBuffers[0].address = vram.allocateBuffer(
       rendererGS.frameBuffers[0].width, rendererGS.frameBuffers[0].height,
       rendererGS.frameBuffers[0].psm);
 
@@ -657,17 +668,17 @@ void allocateBuffers() {
   rendererGS.frameBuffers[1].height = rendererGS.frameBuffers[0].height;
   rendererGS.frameBuffers[1].mask = rendererGS.frameBuffers[0].mask;
   rendererGS.frameBuffers[1].psm = rendererGS.frameBuffers[0].psm;
-  rendererGS.frameBuffers[1].address = rendererGS.vram.allocateBuffer(
+  rendererGS.frameBuffers[1].address = vram.allocateBuffer(
       rendererGS.frameBuffers[1].width, rendererGS.frameBuffers[1].height,
       rendererGS.frameBuffers[1].psm);
 
-  rendererGS.zBuffer.enable = DRAW_ENABLE;
-  rendererGS.zBuffer.mask = 0;
-  rendererGS.zBuffer.method = ZTEST_METHOD_GREATER_EQUAL;
-  rendererGS.zBuffer.zsm = GS_ZBUF_32;
-  rendererGS.zBuffer.address = rendererGS.vram.allocateBuffer(
-      rendererGS.frameBuffers[0].width, rendererGS.frameBuffers[0].height,
-      rendererGS.zBuffer.zsm);
+  zBuffer.enable = DRAW_ENABLE;
+  zBuffer.mask = 0;
+  zBuffer.method = ZTEST_METHOD_GREATER_EQUAL;
+  zBuffer.zsm = GS_ZBUF_32;
+  zBuffer.address =
+      vram.allocateBuffer(rendererGS.frameBuffers[0].width,
+                          rendererGS.frameBuffers[0].height, zBuffer.zsm);
 
   graph_initialize(
       rendererGS.frameBuffers[1].address, rendererGS.frameBuffers[1].width,
@@ -688,25 +699,23 @@ void allocateBuffers() {
 }
 
 void enableZTests() {
-  packet2_reset(rendererGS.zTestPacket, false);
-  packet2_update(
-      rendererGS.zTestPacket,
-      draw_enable_tests(rendererGS.zTestPacket->base, 0, &rendererGS.zBuffer));
-  packet2_update(rendererGS.zTestPacket,
-                 draw_finish(rendererGS.zTestPacket->next));
+  packet2_reset(zTestPacket, false);
+  packet2_update(zTestPacket,
+                 draw_enable_tests(zTestPacket->base, 0, &zBuffer));
+  packet2_update(zTestPacket, draw_finish(zTestPacket->next));
   dma_channel_wait(DMA_CHANNEL_GIF, 0);
-  dma_channel_send_packet2(rendererGS.zTestPacket, DMA_CHANNEL_GIF, true);
+  dma_channel_send_packet2(zTestPacket, DMA_CHANNEL_GIF, true);
 }
 
 void initDrawingEnvironment() {
   packet2_t* packet2 = packet2_create(20, P2_TYPE_NORMAL, P2_MODE_NORMAL, 0);
   packet2_update(
       packet2, draw_setup_environment(packet2->base, 0, rendererGS.frameBuffers,
-                                      &rendererGS.zBuffer));
-  packet2_update(packet2, draw_primitive_xyoffset(
-                              packet2->next, 0,
-                              rendererGS.screenCenter - (core.width / 2.0F),
-                              rendererGS.screenCenter - (core.height / 2.0F)));
+                                      &zBuffer));
+  packet2_update(packet2,
+                 draw_primitive_xyoffset(packet2->next, 0,
+                                         SCREEN_CENTER - (core.width / 2.0F),
+                                         SCREEN_CENTER - (core.height / 2.0F)));
   packet2_update(packet2, draw_finish(packet2->next));
   dma_channel_send_packet2(packet2, DMA_CHANNEL_GIF, true);
   dma_channel_wait(DMA_CHANNEL_GIF, 0);
@@ -738,10 +747,9 @@ void flipBuffers() {
 
   rendererGS.context ^= 1;
 
-  packet2_update(
-      rendererGS.flipPacket,
-      draw_framebuffer(rendererGS.flipPacket->base, 0,
-                       &rendererGS.frameBuffers[rendererGS.context]));
+  packet2_update(flipPacket, draw_framebuffer(
+                                 flipPacket->base, 0,
+                                 &rendererGS.frameBuffers[rendererGS.context]));
   // Interlacing test
   // packet2_update(
   //     flipPacket,
@@ -749,10 +757,9 @@ void flipBuffers() {
   //                 screenCenter - (core.width / 2.0F),
   //                 screenCenter - (core.interlacedHeightF / 2.0F)));
 
-  packet2_update(rendererGS.flipPacket,
-                 draw_finish(rendererGS.flipPacket->next));
+  packet2_update(flipPacket, draw_finish(flipPacket->next));
   dma_channel_wait(DMA_CHANNEL_GIF, 0);
-  dma_channel_send_packet2(rendererGS.flipPacket, DMA_CHANNEL_GIF, true);
+  dma_channel_send_packet2(flipPacket, DMA_CHANNEL_GIF, true);
   draw_wait_finish();
 
   // Interlacing test
@@ -770,9 +777,8 @@ void updateCurrentField() {
 
 void initCoreGS() {
   initChannels();
-  rendererGS.flipPacket =
-      packet2_create(4, P2_TYPE_UNCACHED_ACCL, P2_MODE_NORMAL, 0);
-  rendererGS.zTestPacket = packet2_create(8, P2_TYPE_NORMAL, P2_MODE_NORMAL, 0);
+  flipPacket = packet2_create(4, P2_TYPE_UNCACHED_ACCL, P2_MODE_NORMAL, 0);
+  zTestPacket = packet2_create(8, P2_TYPE_NORMAL, P2_MODE_NORMAL, 0);
   allocateBuffers();
   initDrawingEnvironment();
 
@@ -782,7 +788,7 @@ void initCoreGS() {
 void beginFrame() {
   engineCore3D.update();
   Threading::switchThread();
-  clearScreenPath3(&rendererGS.zBuffer, bgColor);
+  clearScreenPath3(&zBuffer, bgColor);
 }
 
 void endFrame() {

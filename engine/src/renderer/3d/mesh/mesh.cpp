@@ -64,9 +64,9 @@ Mesh::~Mesh() {
 
 void Mesh::init() {
   id = rand() % 1000000;
-  translation = M4x4::Identity;
-  rotation = M4x4::Identity;
-  scale = M4x4::Identity;
+  translation = getMatrixIdentity();
+  rotation = getMatrixIdentity();
+  scale = getMatrixIdentity();
   translation.translate(Vec4(0.0F, 0.0F, 0.0F, 1.0F));
 }
 

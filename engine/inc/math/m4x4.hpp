@@ -18,9 +18,8 @@ namespace Tyra {
 
 class M4x4 {
  public:
-  MATRIX data alignas(sizeof(float) * 16);
-
-  static const M4x4 Identity;
+//MATRIX data alignas(sizeof(float) * 16);
+  MATRIX data;
 
   /** Create matrix with random values */
   M4x4() {}
@@ -97,8 +96,6 @@ class M4x4 {
   std::string getPrint(const char* name = nullptr) const;
 
  private:
-  static float upVec[4] alignas(sizeof(float) * 4);
-  static float viewVec[4] alignas(sizeof(float) * 4);
 
   static void cross(float res[16], const float a[16], const float b[16]);
   void rotationX(const float& v);
@@ -112,5 +109,7 @@ class M4x4 {
   static M4x4 setCamera(const float pos[4], const float vz[4],
                         const float vy[4]);
 };
+
+M4x4 getMatrixIdentity();
 
 }  // namespace Tyra
