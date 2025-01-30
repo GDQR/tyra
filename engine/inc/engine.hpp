@@ -32,15 +32,6 @@ struct EngineOptions {
 
 class Engine {
  public:
-  Engine();
-  Engine(const EngineOptions& options);
-  ~Engine();
-
-  // Renderer renderer;
-  // Pad pad;
-  // Audio audio;
-  // Info info;
-
   void run(Game* t_game);
 
  private:
@@ -50,7 +41,6 @@ class Engine {
   Banner banner;
 
   void realLoop();
-  void initAll(const bool& loadUsbDriver);
 };
 class EngineCoreData {
  public:
@@ -104,24 +94,6 @@ class EngineRendererCoreGS {
   // void updateCurrentField();
   // qword_t* setXYOffset(qword_t* q, const int& drawContext, const float& x,
   //                      const float& y);
-};
-
-class path3Lib {
- public:
-  path3Lib();
-  ~path3Lib();
-
-  void init();
-
-  void sendDrawFinishTag();
-  void clearScreen(zbuffer_t* z, const Color& color);
-  void sendTexture(const Texture* texture,
-                   const RendererCoreTextureBuffers& texBuffers);
-
- private:
-  packet2_t* drawFinishPacket;
-  packet2_t* clearScreenPacket;
-  packet2_t* texturePacket;
 };
 
 class RendererCoreTextureSenderLib {
@@ -294,38 +266,6 @@ class EngineRendererCore2D {
   texrect_t* rects[2];
 };
 
-/**
- * Synchronization class.
- * Mainly between VU1 and EE.
- *
- * For example you can set texture, render X vertices, then add() wait, and
- * wait() for it. Without it, there is risk for example to send new texture
- * during drawing with previous one.
- */
-class RendererCoreSyncLib {
- public:
-  RendererCoreSyncLib();
-  ~RendererCoreSyncLib();
-
-  // --- Auto
-
-  /** clear() -> sendPath1Req() -> waitAndClear() */
-  void align3D();
-
-  /** clear() -> sendPath3Req() -> waitAndClear() */
-  void align2D();
-
-  // --- Manual
-
-  u8 check();
-  void clear();
-  void waitAndClear();
-  void sendPath1Req();
-  void sendPath3Req();
-
-  void addPath1Req(packet2_t* packet);
-};
-
 void InitEngine(const EngineOptions& options);
 
 void BeginDrawing(void);
@@ -336,12 +276,45 @@ void render(const Sprite& sprite);
 TextureBpp getBppByPsm(const u32& psm);
 int GetVramSize(int width, int height, const int psm, const int alignment);
 
-/** Clear the screen based on the screen's origin, width, and height using the defined color. **/
-qword_t* draw_clear(qword_t *q, int context, float x, float y, float width, float height, int r, int g, int b, int a);
+/** Clear the screen based on the screen's origin, width, and height using the
+ * defined color. **/
+qword_t* draw_clear(qword_t* q, int context, float x, float y, float width,
+                    float height, int r, int g, int b, int a);
 Info getInfo();
 EngineCoreData getSettings();
 TextureRepository& getTextureRepository();
 
 void setClearScreenColor(const Color& color);
+
+// Path3
+void clearScreenPath3(zbuffer_t* z, const Color& color);
+void sendDrawFinishTagPath3();  
+void sendTextureWithPath3(const Texture* texture,
+                   const RendererCoreTextureBuffers& texBuffers);
+// sync
+
+/**
+ * Synchronization class.
+ * Mainly between VU1 and EE.
+ *
+ * For example you can set texture, render X vertices, then add() wait, and
+ * wait() for it. Without it, there is risk for example to send new texture
+ * during drawing with previous one.
+ */
+
+// --- Auto
+
+/** clear() -> sendPath1Req() -> waitAndClear() */
+void align3D();
+
+/** clear() -> sendPath3Req() -> waitAndClear() */
+void align2D();
+
+// --- Manual
+
+u8 check();
+void clear();
+void waitAndClear();
+void addPath1Req(packet2_t* packet);
 
 }  // namespace Tyra

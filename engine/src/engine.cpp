@@ -33,17 +33,18 @@ static Pad pad;
 static Info info;
 static IrxLoader irx;
 static Path1 path1;
-static path3Lib path3;
 static EngineCoreData core;
 static EngineRendererCoreGS rendererGS;
 static RendererCoreTextureSenderLib sender;
 static EngineRendererCoreTexture engineCoreTexture;
 static RendererCore3DLib engineCore3D;
 static EngineRendererCore2D engineCore2D;
-static RendererCoreSyncLib engineCoreSync;
 static Color bgColor;
-static bool isFrameLimitOn;
+static bool isFrameLimitOn = true;
 
+static packet2_t* clearScreenPacketPath3;
+static packet2_t* drawFinishPacketPath3;
+static packet2_t* texturePacketPath3;
 void EngineCoreData::print() const {
   auto text = getPrint();
   printf("%s\n", text.c_str());
@@ -81,59 +82,49 @@ EngineRendererCoreGS::~EngineRendererCoreGS() {
   }
 }
 
-path3Lib::path3Lib() {
-  drawFinishPacket = packet2_create(3, P2_TYPE_NORMAL, P2_MODE_CHAIN, false);
-  clearScreenPacket = packet2_create(36, P2_TYPE_NORMAL, P2_MODE_CHAIN, false);
-  texturePacket = packet2_create(128, P2_TYPE_NORMAL, P2_MODE_CHAIN, false);
+void initPath3() {
+  drawFinishPacketPath3 = packet2_create(3, P2_TYPE_NORMAL, P2_MODE_CHAIN, false);
+  clearScreenPacketPath3 = packet2_create(36, P2_TYPE_NORMAL, P2_MODE_CHAIN, false);
+  texturePacketPath3 = packet2_create(128, P2_TYPE_NORMAL, P2_MODE_CHAIN, false);
 
-  packet2_chain_open_end(drawFinishPacket, 0, 0);
-  packet2_update(drawFinishPacket, draw_finish(drawFinishPacket->next));
-  packet2_chain_close_tag(drawFinishPacket);
-}
-
-path3Lib::~path3Lib() {
-  packet2_free(drawFinishPacket);
-  packet2_free(clearScreenPacket);
-  packet2_free(texturePacket);
-}
-
-void path3Lib::init() {
+  packet2_chain_open_end(drawFinishPacketPath3, 0, 0);
+  packet2_update(drawFinishPacketPath3, draw_finish(drawFinishPacketPath3->next));
+  packet2_chain_close_tag(drawFinishPacketPath3);
   dma_channel_initialize(DMA_CHANNEL_GIF, nullptr, 0);
 
   TYRA_LOG("Path3 initialized");
 }
 
-void path3Lib::sendDrawFinishTag() {
+void sendDrawFinishTagPath3() {
   dma_channel_wait(DMA_CHANNEL_GIF, 0);
-  dma_channel_send_packet2(drawFinishPacket, DMA_CHANNEL_GIF, true);
+  dma_channel_send_packet2(drawFinishPacketPath3, DMA_CHANNEL_GIF, true);
 }
 
-void path3Lib::clearScreen(zbuffer_t* z, const Color& color) {
-  packet2_reset(clearScreenPacket, false);
-  packet2_chain_open_end(clearScreenPacket, 0, 0);
-  packet2_update(clearScreenPacket,
-                 draw_disable_tests(clearScreenPacket->next, 0, z));
-  packet2_update(
-      clearScreenPacket,
-      draw_clear(clearScreenPacket->next, 0, 2048.0F - (core.width / 2),
+void clearScreenPath3(zbuffer_t* z, const Color& color) {
+  packet2_reset(clearScreenPacketPath3, false);
+  packet2_chain_open_end(clearScreenPacketPath3, 0, 0);
+  packet2_update(clearScreenPacketPath3,
+                 draw_disable_tests(clearScreenPacketPath3->next, 0, z));
+  packet2_update(clearScreenPacketPath3,
+      draw_clear(clearScreenPacketPath3->next, 0, 2048.0F - (core.width / 2),
                  2048.0F - (core.height / 2), core.width, core.height,
                  static_cast<int>(color.r), static_cast<int>(color.g),
                  static_cast<int>(color.b), static_cast<int>(color.a)));
-  packet2_update(clearScreenPacket,
-                 draw_enable_tests(clearScreenPacket->next, 0, z));
-  packet2_update(clearScreenPacket, draw_finish(clearScreenPacket->next));
-  packet2_chain_close_tag(clearScreenPacket);
+  packet2_update(clearScreenPacketPath3,
+                 draw_enable_tests(clearScreenPacketPath3->next, 0, z));
+  packet2_update(clearScreenPacketPath3, draw_finish(clearScreenPacketPath3->next));
+  packet2_chain_close_tag(clearScreenPacketPath3);
   dma_channel_wait(DMA_CHANNEL_GIF, 0);
-  dma_channel_send_packet2(clearScreenPacket, DMA_CHANNEL_GIF, true);
+  dma_channel_send_packet2(clearScreenPacketPath3, DMA_CHANNEL_GIF, true);
 }
 
-void path3Lib::sendTexture(const Texture* texture,
+void sendTextureWithPath3(const Texture* texture,
                            const RendererCoreTextureBuffers& texBuffers) {
-  packet2_reset(texturePacket, false);
+  packet2_reset(texturePacketPath3, false);
 
   packet2_update(
-      texturePacket,
-      draw_texture_transfer(texturePacket->base, texture->core->data,
+      texturePacketPath3,
+      draw_texture_transfer(texturePacketPath3->base, texture->core->data,
                             texture->getWidth(), texture->getHeight(),
                             texture->core->psm, texBuffers.core->address,
                             texBuffers.core->width));
@@ -141,22 +132,22 @@ void path3Lib::sendTexture(const Texture* texture,
   if (texBuffers.clut != nullptr) {
     auto* clut = texture->clut;
     packet2_update(
-        texturePacket,
-        draw_texture_transfer(texturePacket->next, clut->data, clut->width,
+        texturePacketPath3,
+        draw_texture_transfer(texturePacketPath3->next, clut->data, clut->width,
                               clut->height, clut->psm, texBuffers.clut->address,
                               texBuffers.clut->width));
   }
 
-  packet2_chain_open_cnt(texturePacket, 0, 0, 0);
-  packet2_update(texturePacket,
+  packet2_chain_open_cnt(texturePacketPath3, 0, 0, 0);
+  packet2_update(texturePacketPath3,
                  draw_texture_wrapping(
-                     texturePacket->next, 0,
+                     texturePacketPath3->next, 0,
                      const_cast<texwrap_t*>(texture->getWrapSettings())));
-  packet2_chain_close_tag(texturePacket);
+  packet2_chain_close_tag(texturePacketPath3);
 
-  packet2_update(texturePacket, draw_texture_flush(texturePacket->next));
+  packet2_update(texturePacketPath3, draw_texture_flush(texturePacketPath3->next));
   dma_channel_wait(DMA_CHANNEL_GIF, 0);
-  dma_channel_send_packet2(texturePacket, DMA_CHANNEL_GIF, true);
+  dma_channel_send_packet2(texturePacketPath3, DMA_CHANNEL_GIF, true);
 }
 
 RendererCoreTextureSenderLib::RendererCoreTextureSenderLib() {}
@@ -296,7 +287,7 @@ RendererCoreTextureBuffers EngineRendererCoreTexture::useTexture(
   }
 
   auto newTexBuffer = sender.allocate(t_tex);
-  path3.sendTexture(t_tex, newTexBuffer);
+  sendTextureWithPath3(t_tex, newTexBuffer);
   registerAllocation(newTexBuffer);
 
   return newTexBuffer;
@@ -309,7 +300,7 @@ RendererCoreTextureBuffers EngineRendererCoreTexture::updateTextureInfo(
   auto allocated = getAllocatedBuffersByTextureId(t_tex->id);
   TYRA_ASSERT(allocated.id != 0, "Can't update an unallocated texture!");
 
-  path3.sendTexture(t_tex, allocated);
+  sendTextureWithPath3(t_tex, allocated);
   return allocated;
 }
 
@@ -619,34 +610,26 @@ void EngineRendererCore2D::setTextureMappingType(
   lod.min_filter = textureMappingType;
 }
 
-RendererCoreSyncLib::RendererCoreSyncLib() {}
-RendererCoreSyncLib::~RendererCoreSyncLib() {}
-
-void RendererCoreSyncLib::align3D() {
+void align3D() {
   clear();
-  sendPath1Req();
+  path1.sendDrawFinishTag();
   waitAndClear();
 }
 
-void RendererCoreSyncLib::align2D() {
+void align2D() {
   clear();
-  sendPath3Req();
+  sendDrawFinishTagPath3();
   waitAndClear();
 }
-
-void RendererCoreSyncLib::sendPath1Req() { path1.sendDrawFinishTag(); }
-
-void RendererCoreSyncLib::sendPath3Req() { path3.sendDrawFinishTag(); }
-
-void RendererCoreSyncLib::addPath1Req(packet2_t* packet) {
+void addPath1Req(packet2_t* packet) {
   path1.addDrawFinishTag(packet);
 }
 
-u8 RendererCoreSyncLib::check() { return *GS_REG_CSR & 2; }
+u8 check() { return *GS_REG_CSR & 2; }
 
-void RendererCoreSyncLib::clear() { *GS_REG_CSR |= 2; }
+void clear() { *GS_REG_CSR |= 2; }
 
-void RendererCoreSyncLib::waitAndClear() {
+void waitAndClear() {
   while (!check()) {
   }
   clear();
@@ -792,7 +775,7 @@ void initCoreGS() {
 void beginFrame() {
   engineCore3D.update();
   Threading::switchThread();
-  path3.clearScreen(&rendererGS.zBuffer, bgColor);
+  clearScreenPath3(&rendererGS.zBuffer, bgColor);
 }
 
 void endFrame() {
@@ -867,8 +850,7 @@ void InitEngine(const EngineOptions& options) {
   srand(time(nullptr));
   irx.loadAll(options.loadUsbDriver, info.writeLogsToFile);
   // renderer.init();
-  path3.init();
-  // engineCoreSync.init(); // no hace nada
+  initPath3();
   initCoreGS();
   engineCoreTexture.init();
   engineCore3D.init();
@@ -1242,15 +1224,6 @@ int GetVramSize(int width, int height, const int psm, const int alignment) {
   return size;
 }
 
-Engine::Engine() { initAll(false); }
-
-Engine::Engine(const EngineOptions& options) {
-  // info.writeLogsToFile = options.writeLogsToFile;
-  // initAll(options.loadUsbDriver);
-}
-
-Engine::~Engine() {}
-
 void Engine::run(Game* t_game) {
   game = t_game;
   game->init();
@@ -1263,15 +1236,6 @@ void Engine::realLoop() {
   pad.update();
   game->loop();
   info.update();
-}
-
-void Engine::initAll(const bool& loadUsbDriver) {
-  // srand(time(nullptr));
-  // irx.loadAll(loadUsbDriver, info.writeLogsToFile);
-  // renderer.init();
-  // banner.show(&renderer);
-  // audio.init();
-  // pad.init();
 }
 
 }  // namespace Tyra
