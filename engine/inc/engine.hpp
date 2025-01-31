@@ -35,10 +35,8 @@ class Engine {
   void run(Game* t_game);
 
  private:
-  // IrxLoader irx;
 
   Game* game;
-  Banner banner;
 
   void realLoop();
 };
@@ -98,7 +96,6 @@ class RendererCoreTextureSenderLib {
 class EngineRendererCoreTexture {
  public:
   // clutbuffer_t clut;
-  TextureRepository repository;
 
   RendererCoreTextureBuffers useTexture(const Texture* t_tex);
 
@@ -107,9 +104,6 @@ class EngineRendererCoreTexture {
    * Updates texture packet without reallocate it
    */
   RendererCoreTextureBuffers updateTextureInfo(const Texture* t_tex);
-
-  /** Called by renderer during initialization */
-  void init();
 };
 
 class EngineRenderer3DFrustumPlanes {
@@ -238,7 +232,7 @@ TextureRepository& getTextureRepository();
 void setClearScreenColor(const Color& color);
 
 // rendererCoreTexture
-
+void initRendererCoreTexture();
 /** Called by renderer during rendering */
 void updateClutBuffer(texbuffer_t* clutBuffer);
 

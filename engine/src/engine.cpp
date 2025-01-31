@@ -39,6 +39,7 @@ static RendererCoreTextureSenderLib sender;
 static EngineRendererCoreTexture engineCoreTexture;
 static RendererCore3DLib engineCore3D;
 static EngineRendererCore2D engineCore2D;
+static TextureRepository repository;
 static Color bgColor;
 static bool isFrameLimitOn = true;
 
@@ -282,7 +283,7 @@ void initClut() {
 }
 
 static std::vector<RendererCoreTextureBuffers> currentAllocations;
-void EngineRendererCoreTexture::init() {
+void initRendererCoreTexture() {
   sender.init();
   repository.init(&currentAllocations);
   initClut();
@@ -356,7 +357,7 @@ RendererCoreTextureBuffers EngineRendererCoreTexture::updateTextureInfo(
 }
 
 TextureRepository& getTextureRepository() {
-  return engineCoreTexture.repository;
+  return repository;
 }
 
 EngineRenderer3DFrustumPlanes::EngineRenderer3DFrustumPlanes() {
@@ -800,7 +801,7 @@ void endFrame() {
 void setClearScreenColor(const Color& color) { bgColor = color; }
 
 void render(const Sprite& sprite) {
-  auto* texture = engineCoreTexture.repository.getBySpriteId(sprite.id);
+  auto* texture = repository.getBySpriteId(sprite.id);
 
   TYRA_ASSERT(
       texture, "Texture for sprite with id: ", sprite.id,
@@ -830,7 +831,7 @@ void showBanner() {
 
   auto texture = Texture(&tbd);
   texture.addLink(sprite.id);
-  engineCoreTexture.repository.add(&texture);
+  repository.add(&texture);
 
   for (int i = 0; i < 2; i++) {
     beginFrame();
@@ -838,7 +839,7 @@ void showBanner() {
     endFrame();
   }
 
-  engineCoreTexture.repository.removeById(texture.id);
+  repository.removeById(texture.id);
   texture.core->data = nullptr;
   delete[] bannerData;
 
@@ -865,7 +866,7 @@ void InitEngine(const EngineOptions& options) {
   // renderer.init();
   initPath3();
   initCoreGS();
-  engineCoreTexture.init();
+  initRendererCoreTexture();
   engineCore3D.init();
   showBanner();
   audio.init();
