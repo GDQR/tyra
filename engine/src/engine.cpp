@@ -31,7 +31,6 @@ namespace Tyra {
 static Audio audio;
 static Pad pad;
 static Info info;
-static IrxLoader irx;
 static Path1 path1;
 static EngineCoreData core;
 static EngineRendererCoreGS rendererGS;
@@ -798,6 +797,8 @@ void endFrame() {
   flipBuffers();
 }
 
+void setFrameLimit(const bool& onoff){ isFrameLimitOn = onoff;}
+
 void setClearScreenColor(const Color& color) { bgColor = color; }
 
 void render(const Sprite& sprite) {
@@ -862,6 +863,7 @@ void showBanner() {
 void InitEngine(const EngineOptions& options) {
   info.writeLogsToFile = options.writeLogsToFile;
   srand(time(nullptr));
+  IrxLoader irx;
   irx.loadAll(options.loadUsbDriver, info.writeLogsToFile);
   // renderer.init();
   initPath3();

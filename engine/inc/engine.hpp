@@ -35,7 +35,6 @@ class Engine {
   void run(Game* t_game);
 
  private:
-
   Game* game;
 
   void realLoop();
@@ -230,6 +229,8 @@ EngineCoreData getSettings();
 TextureRepository& getTextureRepository();
 
 void setClearScreenColor(const Color& color);
+
+void setFrameLimit(const bool& onoff);
 
 // rendererCoreTexture
 void initRendererCoreTexture();
