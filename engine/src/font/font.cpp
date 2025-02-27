@@ -149,7 +149,6 @@ void Font::loadFontFromMemory(FontData* font, const char* filePath,
       createGlyphTexture(font, fontSize, codePoints[i] /*, fontSize*/);
     }
   }
-
   TYRA_LOG("Font Loaded!");
 }
 
@@ -158,25 +157,33 @@ void Font::loadFont(FontData* font, int fontSize, const char* filePath) {
 }
 
 void Font::unloadGlyphs(FontData* font) {
+  TYRA_LOG("Unloading Glyphs");
   font->glyph.clear();
   font->glyphID.clear();
 }
 
 void Font::unloadFontDataRAM(FontData* font) {
-  unloadGlyphs(font);
-  TyraFont::dataFromFontData.erase(TyraFont::dataFromFontData.begin() +
-                                   font->dataID);
-  TyraFont::deletedIDs.push_back(font->dataID);
-  font->dataID = TyraFont::MAXID;
+  if (font->dataID != TyraFont::MAXID) {
+    unloadGlyphs(font);
+    TyraFont::dataFromFontData.erase(TyraFont::dataFromFontData.begin() +
+                                     font->dataID);
+    TyraFont::deletedIDs.push_back(font->dataID);
+    font->dataID = TyraFont::MAXID;
+  }
 }
 
 void Font::unloadFontDataVRAM(FontData* font) {
-  unloadFontDataRAM(font);
-  if (TyraFont::rendererTexture->repository.getIndexOf(font->textureID) != -1) {
-    TyraFont::rendererTexture->repository.free(font->textureID);
-    font->textureID = TyraFont::rendererTexture->repository.getTexturesCount();
+  if (font->dataID != TyraFont::MAXID) {
+    unloadFontDataRAM(font);
+    FT_Done_Face(font->face);
+    if (TyraFont::rendererTexture->repository.getIndexOf(font->textureID) !=
+        -1) {
+      TyraFont::rendererTexture->repository.free(font->textureID);
+      font->textureID =
+          TyraFont::rendererTexture->repository.getTexturesCount();
+    }
+    TYRA_LOG("Unloaded Font data from RAM and VRAM successful");
   }
-  TYRA_LOG("Unloaded Font data from RAM and VRAM successful");
 }
 
 bool Font::getGlyphIndex(FontData* font, unsigned int* glyph,
@@ -301,6 +308,8 @@ void Font::createGlyphTexture(FontData* font, const int fontSize,
 
   Texture* texture =
       TyraFont::rendererTexture->repository.getByTextureId(font->textureID);
+
+  TYRA_ASSERT(texture != nullptr, "Texture Not Found");
 
   int colorSize = 1;
   if (slot->bitmap.pixel_mode == FT_PIXEL_MODE_BGRA) {
