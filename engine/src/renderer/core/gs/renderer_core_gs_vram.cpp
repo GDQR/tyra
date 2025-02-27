@@ -52,7 +52,6 @@ float RendererCoreGSVRam::getSizeInMB(const TextureData& texData) {
 
 float RendererCoreGSVRam::getSizeInMB(int width, int height, const int& psm,
                                       const int& alignment) {
-  // // printf("getSizeInMB width, height: %d,%d\n", width, height);
   return getSize(width, height, psm, alignment) / ptr2MB;
 }
 
@@ -109,6 +108,7 @@ int RendererCoreGSVRam::getSize(int width, int height, const int psm,
   int totalHeightPage = 1;  // use 1 page representing the actual page working
   int carryWidth = 0;
   int carryHeight = 0;
+  int block2x2 = 0;
 
   if (psm == GS_PSM_4) {
     /**
@@ -394,14 +394,6 @@ int RendererCoreGSVRam::getSize(int width, int height, const int psm,
   carryWidth = widthBlock % 2;
   carryHeight = heightBlock % 2;
 
-  if (carryWidth == 0) {
-    carryWidth = 2;
-  }
-
-  if (carryHeight == 0) {
-    carryHeight = 2;
-  }
-
   if (psm == GS_PSM_4 || psm == GS_PSM_16 || psm == GS_PSMZ_16 ||
       psm == GS_PSM_16S || psm == GS_PSMZ_16S) {
     /**
@@ -415,16 +407,18 @@ int RendererCoreGSVRam::getSize(int width, int height, const int psm,
      * |1|3|1|2|
      * |0|2|0|2|
      * |1|3|1|2|
-     * carryWidth * carryHeight = size block
-     * 0 = 1*1     = 1 block
-     * 1 = 1*2     = 2 block
-     * 2 = 2*1 + 1 = 3 block
-     * 3 = 2*2     = 4 block
+     * 
+     * carryWidth  = bit 2
+     * carryHeight = bit 1
+     * ([(bit 2)(bit 1)] ^ 3) + 1  = Block size
+     * N | Binary | Decimal |B XOR 3| +1 | Block size
+     * 0 |   11   |    3    |   0   |  1 | 1 block
+     * 1 |   10   |    2    |   1   |  2 | 2 block
+     * 2 |   01   |    1    |   2   |  3 | 3 block
+     * 3 |   00   |    0    |   3   |  4 | 4 block
      **/
-    if (carryWidth == 2 && carryHeight == 1) {
-      size += 1;
-    }
 
+    block2x2 = ((1 & carryWidth) << 1) | carryHeight;
   } else if (psm == GS_PSM_8 || psm == GS_PSM_24 || psm == GS_PSM_32 ||
              psm == GS_PSM_8H || psm == GS_PSM_4HL || psm == GS_PSM_4HH ||
              psm == GS_PSMZ_24 || psm == GS_PSMZ_32) {
@@ -435,20 +429,24 @@ int RendererCoreGSVRam::getSize(int width, int height, const int psm,
      * |2|3|2|3|2|3|2|3|
      * |0|1|0|1|0|1|0|1|
      * |2|3|2|3|2|3|2|3|
-     * carryWidth * carryHeight = size block
-     * 0 = 1*1     = 1 block
-     * 1 = 1*2     = 2 block
-     * 2 = 1*2 + 1 = 3 block
-     * 3 = 2*2     = 4 block
+     * 
+     * carryHeight = bit 2
+     * carryWidth  = bit 1
+     * ([(bit 2)(bit 1)] ^ 3) + 1  = Block size
+     * N | Binary | Decimal |B XOR 3| +1 | Block size
+     * 0 |   11   |    3    |   0   |  1 | 1 block
+     * 1 |   10   |    2    |   1   |  2 | 2 block
+     * 2 |   01   |    1    |   2   |  3 | 3 block
+     * 3 |   00   |    0    |   3   |  4 | 4 block
      **/
-    if (carryWidth == 1 && carryHeight == 2) {
-      size += 1;
-    }
+    block2x2 = ((1 & carryHeight) << 1) | carryWidth;
   }
+  block2x2 = block2x2 ^ 3;
+  block2x2++;
 
-  size += carryWidth * carryHeight;
+  size += block2x2;
 
-  size *= GS_VRAM_TEXTURE_ALIGNMENT;
+  size *= GRAPH_ALIGN_BLOCK;
 
   size = -alignment & (size + (alignment - 1));
 

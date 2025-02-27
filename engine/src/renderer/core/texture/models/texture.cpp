@@ -115,6 +115,7 @@ u32 Texture::getTextureSize() const {
   int totalHeightPage = 1;  // use 1 page representing the actual page working
   int carryWidth = 0;
   int carryHeight = 0;
+  int block2x2 = 0;
 
   if (core->psm == GS_PSM_4) {
     /**
@@ -152,9 +153,8 @@ u32 Texture::getTextureSize() const {
     heightPixel = 16;
     widthPage = 128;
     heightPage = 64;
-  } else if (core->psm == GS_PSM_24 || core->psm == GS_PSM_32 ||
-             core->psm == GS_PSM_8H || core->psm == GS_PSM_4HL ||
-             core->psm == GS_PSM_4HH || core->psm == GS_PSMZ_24 ||
+  } else if (core->psm == GS_PSM_24 || core->psm == GS_PSM_32 || core->psm == GS_PSM_8H ||
+             core->psm == GS_PSM_4HL || core->psm == GS_PSM_4HH || core->psm == GS_PSMZ_24 ||
              core->psm == GS_PSMZ_32) {
     /**
      * 1 Page = 32 blocks
@@ -171,8 +171,8 @@ u32 Texture::getTextureSize() const {
     heightPixel = 8;
     widthPage = 64;
     heightPage = 32;
-  } else if (core->psm == GS_PSM_16 || core->psm == GS_PSMZ_16 ||
-             core->psm == GS_PSM_16S || core->psm == GS_PSMZ_16S) {
+  } else if (core->psm == GS_PSM_16 || core->psm == GS_PSMZ_16 || core->psm == GS_PSM_16S ||
+             core->psm == GS_PSMZ_16S) {
     /**
      * 1 Page = 32 blocks
      * Each block represents 16x8 pixels.
@@ -263,9 +263,8 @@ u32 Texture::getTextureSize() const {
     } else if (widthBlock <= 4 && heightBlock <= 8) {
       size += 28;  // 7 * 4 blocks
     }
-  } else if (core->psm == GS_PSM_8 || core->psm == GS_PSM_24 ||
-             core->psm == GS_PSM_32 || core->psm == GS_PSM_8H ||
-             core->psm == GS_PSM_4HL || core->psm == GS_PSM_4HH ||
+  } else if (core->psm == GS_PSM_8 || core->psm == GS_PSM_24 || core->psm == GS_PSM_32 ||
+             core->psm == GS_PSM_8H || core->psm == GS_PSM_4HL || core->psm == GS_PSM_4HH ||
              core->psm == GS_PSMZ_24 || core->psm == GS_PSMZ_32) {
     /**
      * This gets the 2x2 block sections of the page that need to be included.
@@ -402,17 +401,8 @@ u32 Texture::getTextureSize() const {
   carryWidth = widthBlock % 2;
   carryHeight = heightBlock % 2;
 
-  if (carryWidth == 0) {
-    carryWidth = 2;
-  }
-
-  if (carryHeight == 0) {
-    carryHeight = 2;
-  }
-
-  if (core->psm == GS_PSM_4 || core->psm == GS_PSM_16 ||
-      core->psm == GS_PSMZ_16 || core->psm == GS_PSM_16S ||
-      core->psm == GS_PSMZ_16S) {
+  if (core->psm == GS_PSM_4 || core->psm == GS_PSM_16 || core->psm == GS_PSMZ_16 ||
+      core->psm == GS_PSM_16S || core->psm == GS_PSMZ_16S) {
     /**
      * This gets the position of the first 4 blocks.
      * knowing if the number of blocks is odd or not.
@@ -424,19 +414,20 @@ u32 Texture::getTextureSize() const {
      * |1|3|1|2|
      * |0|2|0|2|
      * |1|3|1|2|
-     * carryWidth * carryHeight = size block
-     * 0 = 1*1     = 1 block
-     * 1 = 1*2     = 2 block
-     * 2 = 2*1 + 1 = 3 block
-     * 3 = 2*2     = 4 block
+     * 
+     * carryWidth  = bit 2
+     * carryHeight = bit 1
+     * ([(bit 2)(bit 1)] ^ 3) + 1  = Block size
+     * N | Binary | Decimal |B XOR 3| +1 | Block size
+     * 0 |   11   |    3    |   0   |  1 | 1 block
+     * 1 |   10   |    2    |   1   |  2 | 2 block
+     * 2 |   01   |    1    |   2   |  3 | 3 block
+     * 3 |   00   |    0    |   3   |  4 | 4 block
      **/
-    if (carryWidth == 2 && carryHeight == 1) {
-      size += 1;
-    }
 
-  } else if (core->psm == GS_PSM_8 || core->psm == GS_PSM_24 ||
-             core->psm == GS_PSM_32 || core->psm == GS_PSM_8H ||
-             core->psm == GS_PSM_4HL || core->psm == GS_PSM_4HH ||
+    block2x2 = ((1 & carryWidth) << 1) | carryHeight;
+  } else if (core->psm == GS_PSM_8 || core->psm == GS_PSM_24 || core->psm == GS_PSM_32 ||
+             core->psm == GS_PSM_8H || core->psm == GS_PSM_4HL || core->psm == GS_PSM_4HH ||
              core->psm == GS_PSMZ_24 || core->psm == GS_PSMZ_32) {
     /**
      * This gets the position of the first 4 blocks.
@@ -445,18 +436,22 @@ u32 Texture::getTextureSize() const {
      * |2|3|2|3|2|3|2|3|
      * |0|1|0|1|0|1|0|1|
      * |2|3|2|3|2|3|2|3|
-     * carryWidth * carryHeight = size block
-     * 0 = 1*1     = 1 block
-     * 1 = 1*2     = 2 block
-     * 2 = 1*2 + 1 = 3 block
-     * 3 = 2*2     = 4 block
+     * 
+     * carryHeight = bit 2
+     * carryWidth  = bit 1
+     * ([(bit 2)(bit 1)] ^ 3) + 1  = Block size
+     * N | Binary | Decimal |B XOR 3| +1 | Block size
+     * 0 |   11   |    3    |   0   |  1 | 1 block
+     * 1 |   10   |    2    |   1   |  2 | 2 block
+     * 2 |   01   |    1    |   2   |  3 | 3 block
+     * 3 |   00   |    0    |   3   |  4 | 4 block
      **/
-    if (carryWidth == 1 && carryHeight == 2) {
-      size += 1;
-    }
+    block2x2 = ((1 & carryHeight) << 1) | carryWidth;
   }
+  block2x2 = block2x2 ^ 3;
+  block2x2++;
 
-  size += carryWidth * carryHeight;
+  size += block2x2;
 
   size *= GRAPH_ALIGN_BLOCK;
 
@@ -484,6 +479,7 @@ u32 Texture::getClutTextureSize() const {
   int totalHeightPage = 1;  // use 1 page representing the actual page working
   int carryWidth = 0;
   int carryHeight = 0;
+  int block2x2 = 0;
 
   if (clut->psm == GS_PSM_4) {
     /**
@@ -771,17 +767,8 @@ u32 Texture::getClutTextureSize() const {
   carryWidth = widthBlock % 2;
   carryHeight = heightBlock % 2;
 
-  if (carryWidth == 0) {
-    carryWidth = 2;
-  }
-
-  if (carryHeight == 0) {
-    carryHeight = 2;
-  }
-
-  if (clut->psm == GS_PSM_4 || clut->psm == GS_PSM_16 ||
-      clut->psm == GS_PSMZ_16 || clut->psm == GS_PSM_16S ||
-      clut->psm == GS_PSMZ_16S) {
+  if (clut->psm == GS_PSM_4 || clut->psm == GS_PSM_16 || clut->psm == GS_PSMZ_16 ||
+    clut->psm == GS_PSM_16S || clut->psm == GS_PSMZ_16S) {
     /**
      * This gets the position of the first 4 blocks.
      * knowing if the number of blocks is odd or not.
@@ -793,20 +780,21 @@ u32 Texture::getClutTextureSize() const {
      * |1|3|1|2|
      * |0|2|0|2|
      * |1|3|1|2|
-     * carryWidth * carryHeight = size block
-     * 0 = 1*1     = 1 block
-     * 1 = 1*2     = 2 block
-     * 2 = 2*1 + 1 = 3 block
-     * 3 = 2*2     = 4 block
+     * 
+     * carryWidth  = bit 2
+     * carryHeight = bit 1
+     * ([(bit 2)(bit 1)] ^ 3) + 1  = Block size
+     * N | Binary | Decimal |B XOR 3| +1 | Block size
+     * 0 |   11   |    3    |   0   |  1 | 1 block
+     * 1 |   10   |    2    |   1   |  2 | 2 block
+     * 2 |   01   |    1    |   2   |  3 | 3 block
+     * 3 |   00   |    0    |   3   |  4 | 4 block
      **/
-    if (carryWidth == 2 && carryHeight == 1) {
-      size += 1;
-    }
 
-  } else if (clut->psm == GS_PSM_8 || clut->psm == GS_PSM_24 ||
-             clut->psm == GS_PSM_32 || clut->psm == GS_PSM_8H ||
-             clut->psm == GS_PSM_4HL || clut->psm == GS_PSM_4HH ||
-             clut->psm == GS_PSMZ_24 || clut->psm == GS_PSMZ_32) {
+    block2x2 = ((1 & carryWidth) << 1) | carryHeight;
+  } else if (clut->psm == GS_PSM_8 || clut->psm == GS_PSM_24 || clut->psm == GS_PSM_32 ||
+    clut->psm == GS_PSM_8H || clut->psm == GS_PSM_4HL || clut->psm == GS_PSM_4HH ||
+    clut->psm == GS_PSMZ_24 || clut->psm == GS_PSMZ_32) {
     /**
      * This gets the position of the first 4 blocks.
      * knowing if the number of blocks is odd or not.
@@ -814,18 +802,22 @@ u32 Texture::getClutTextureSize() const {
      * |2|3|2|3|2|3|2|3|
      * |0|1|0|1|0|1|0|1|
      * |2|3|2|3|2|3|2|3|
-     * carryWidth * carryHeight = size block
-     * 0 = 1*1     = 1 block
-     * 1 = 1*2     = 2 block
-     * 2 = 1*2 + 1 = 3 block
-     * 3 = 2*2     = 4 block
+     * 
+     * carryHeight = bit 2
+     * carryWidth  = bit 1
+     * ([(bit 2)(bit 1)] ^ 3) + 1  = Block size
+     * N | Binary | Decimal |B XOR 3| +1 | Block size
+     * 0 |   11   |    3    |   0   |  1 | 1 block
+     * 1 |   10   |    2    |   1   |  2 | 2 block
+     * 2 |   01   |    1    |   2   |  3 | 3 block
+     * 3 |   00   |    0    |   3   |  4 | 4 block
      **/
-    if (carryWidth == 1 && carryHeight == 2) {
-      size += 1;
-    }
+    block2x2 = ((1 & carryHeight) << 1) | carryWidth;
   }
+  block2x2 = block2x2 ^ 3;
+  block2x2++;
 
-  size += carryWidth * carryHeight;
+  size += block2x2;
 
   size *= GRAPH_ALIGN_BLOCK;
 
