@@ -39,7 +39,7 @@ FontData::FontData() { dataID = TyraFont::MAXID; }
 Font::~Font() {
   delete TyraFont::clutData;
   for (unsigned int i = 0; TyraFont::dataFromFontData.size(); i++) {
-    delete TyraFont::dataFromFontData[i];
+    free(TyraFont::dataFromFontData[i]);
   }
   TyraFont::dataFromFontData.clear();
   TyraFont::deletedIDs.clear();
@@ -165,6 +165,12 @@ void Font::unloadGlyphs(FontData* font) {
 void Font::unloadFontDataRAM(FontData* font) {
   if (font->dataID != TyraFont::MAXID) {
     unloadGlyphs(font);
+    for(unsigned int i = 0; i<TyraFont::dataFromFontData.size();i++){
+      if(i == font->dataID){
+        free(TyraFont::dataFromFontData[font->dataID]);
+        break;
+      }
+    }
     TyraFont::dataFromFontData.erase(TyraFont::dataFromFontData.begin() +
                                      font->dataID);
     TyraFont::deletedIDs.push_back(font->dataID);
@@ -174,8 +180,8 @@ void Font::unloadFontDataRAM(FontData* font) {
 
 void Font::unloadFontDataVRAM(FontData* font) {
   if (font->dataID != TyraFont::MAXID) {
-    unloadFontDataRAM(font);
     FT_Done_Face(font->face);
+    unloadFontDataRAM(font);
     if (TyraFont::rendererTexture->repository.getIndexOf(font->textureID) !=
         -1) {
       TyraFont::rendererTexture->repository.free(font->textureID);
