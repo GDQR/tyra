@@ -42,7 +42,7 @@ void Banner::show(Renderer* renderer) {
   auto texture = Texture(&tbd);
   texture.addLink(sprite.id);
   renderer->core.texture.repository.add(&texture);
-
+  sprite.textureID = texture.id;
   for (int i = 0; i < 2; i++) {
     renderer->beginFrame();
     renderer->renderer2D.render(&sprite);

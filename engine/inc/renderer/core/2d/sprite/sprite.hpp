@@ -24,11 +24,12 @@ class Sprite {
   ~Sprite();
 
   u32 id;
+  u32 textureID;
+  SpriteMode mode;
+  bool flipHorizontal, flipVertical;
   Vec2 position, size, offset;
   float scale;
   Color color;
-  SpriteMode mode;
-  bool flipHorizontal, flipVertical;
 
  private:
   void setDefaultColor();

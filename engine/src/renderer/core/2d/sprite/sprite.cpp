@@ -14,6 +14,7 @@ namespace Tyra {
 
 Sprite::Sprite() {
   id = rand() % 1000000;
+  textureID = 0;
   flipHorizontal = false;
   flipVertical = false;
   size.set(32.0F, 32.0F);
@@ -34,7 +35,7 @@ void Sprite::setDefaultColor() {
   color.r = 128;
   color.g = 128;
   color.b = 128;
-  color.a = 128;
+  color.a = 128;  
 }
 
 }  // namespace Tyra
