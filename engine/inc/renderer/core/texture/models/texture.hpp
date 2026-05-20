@@ -28,6 +28,7 @@ namespace Tyra {
  */
 class Texture {
  public:
+  Texture();
   Texture(TextureBuilderData* data);
   ~Texture();
 

@@ -25,6 +25,7 @@ u32 textureCounter = 1;
 std::vector<u32> deletedIDs;
 }  // namespace TyraTexture
 
+Texture::Texture() {}
 Texture::Texture(TextureBuilderData* t_data) {
   if (TyraTexture::deletedIDs.empty() == false) {
     id = TyraTexture::deletedIDs.front();
