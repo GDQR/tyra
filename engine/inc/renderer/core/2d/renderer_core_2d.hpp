@@ -31,7 +31,17 @@ class RendererCore2D {
 
   void render(const Sprite& sprite,
               const RendererCoreTextureBuffers& texBuffers, Texture* texture);
-
+  void renderSprite(const Vec2 position, const Vec2 offset,
+                                  const Vec2 size, const float scale,
+                                  Tyra::SpriteMode mode, bool flipX, bool flipY,
+                                  Color color,
+                                  const RendererCoreTextureBuffers& texBuffers,
+                                  Texture* texture);
+  void renderSpriteRotate(const Vec2 position, const Vec2 offset, const Vec2 size,
+                    const float scale, float rotation, Tyra::SpriteMode mode, bool flipX,
+                    bool flipY, Color color,
+                    const RendererCoreTextureBuffers& texBuffers,
+                    Texture* texture);
   void renderRotate(const Sprite& sprite,
                     const RendererCoreTextureBuffers& texBuffers,
                     Texture* texture, const Vec2& angle);
