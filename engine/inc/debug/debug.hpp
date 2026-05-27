@@ -83,12 +83,11 @@ class TyraDebug {
     }
 
     init_scr();
-    for (;;) {
-      scr_setXY(20, 10);
-      scr_printf(ss1.str().c_str());
-      writeAssertLinesInScreen(args...);
-      scr_printf(ss2.str().c_str());
-    }
+    scr_setXY(10, 10);
+    scr_printf(ss1.str().c_str());
+    writeAssertLinesInScreen(args...);
+    scr_printf(ss2.str().c_str());
+    while(true) {}
   }
 
  private:
