@@ -54,9 +54,11 @@ Texture::Texture(TextureBuilderData* t_data) {
   core = new TextureData(t_data->data, t_data->bpp, t_data->gsComponents,
                          t_data->width, t_data->height);
 
-  clut =
-      new TextureData(t_data->clut, t_data->clutBpp, t_data->clutGsComponents,
-                      t_data->clutWidth, t_data->clutHeight);
+  if(t_data->data != nullptr){
+    clut =
+        new TextureData(t_data->clut, t_data->clutBpp, t_data->clutGsComponents,
+                        t_data->clutWidth, t_data->clutHeight);
+  }
 
   setDefaultWrapSettings();
 }

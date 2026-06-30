@@ -38,7 +38,7 @@ const float& RendererCoreGSVRam::getFreeSpaceInMB() {
 float RendererCoreGSVRam::getSizeInMB(const Texture& texture) {
   float result = getSizeInMB(*texture.core);
 
-  if (texture.clut->data != nullptr) {
+  if (texture.clut != nullptr) {
     result += getSizeInMB(*texture.clut);
   }
 

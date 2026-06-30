@@ -27,8 +27,7 @@ RendererCoreTextureBuffers RendererCoreTextureSender::allocate(
   texbuffer_t* core = allocateTextureCore(t_texture);
   texbuffer_t* clut = nullptr;
 
-  auto texClut = t_texture->clut;
-  if (texClut->data != nullptr && texClut->width > 0) {
+  if (t_texture->clut != nullptr/* && texClut->width > 0*/) {
     clut = allocateTextureClut(t_texture);
   }
   return {t_texture->id, core, clut};
