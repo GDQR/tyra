@@ -61,13 +61,6 @@ Texture::Texture(TextureBuilderData* t_data) {
   setDefaultWrapSettings();
 }
 
-Texture::~Texture() {
-  TyraTexture::deletedIDs.push_back(id);
-  if (links.size() > 0) links.clear();
-  if (core) delete core;
-  if (clut) delete clut;
-}
-
 const s32 Texture::getIndexOfLink(const u32& t_id) const {
   for (u32 i = 0; i < links.size(); i++)
     if (links[i].id == t_id) return i;
@@ -891,3 +884,11 @@ std::string Texture::getPrint(const char* objectName) const {
 }
 
 }  // namespace Tyra
+
+void Tyra::UnloadTyraTexture(Texture* texture) {
+  printf("texture destructor\n");
+  TyraTexture::deletedIDs.push_back(texture->id);
+  if (texture->links.size() > 0) texture->links.clear();
+  if (texture->core) delete texture->core;
+  if (texture->clut) delete texture->clut;
+}

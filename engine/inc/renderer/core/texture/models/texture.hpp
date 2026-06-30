@@ -30,7 +30,6 @@ class Texture {
  public:
   Texture();
   Texture(TextureBuilderData* data);
-  ~Texture();
 
   u32 id;
   std::string name;
@@ -107,4 +106,6 @@ class Texture {
 
   texwrap_t wrap;
 };
+
+void UnloadTyraTexture(Texture* texture);
 }  // namespace Tyra
